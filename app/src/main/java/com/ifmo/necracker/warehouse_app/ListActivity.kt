@@ -3,6 +3,7 @@ package com.ifmo.necracker.warehouse_app
 import android.app.ListActivity
 import android.content.Context
 import android.content.Intent
+import android.os.AsyncTask
 import android.os.Bundle
 import android.support.design.widget.FloatingActionButton
 import android.support.design.widget.Snackbar
@@ -16,12 +17,19 @@ import android.support.v7.widget.RecyclerView
 import android.support.v7.widget.Toolbar
 import android.view.*
 import android.widget.TextView
+import org.codehaus.jackson.JsonNode
+import org.springframework.http.converter.json.MappingJacksonHttpMessageConverter
+
+import org.springframework.web.client.RestTemplate
 import java.util.*
 
 class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
 
     var listView: RecyclerView? = null
     var adapter : CustomViewer? = null
+    private var  asyncTask : GetAllItemsTask? = GetAllItemsTask()
+    var restTemplate : RestTemplate = RestTemplate()
+    private val serverAddress = "http://10.0.0.105:1487/mh/"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,7 +39,7 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
         listView = findViewById(R.id.listView) as RecyclerView
         listView!!.setLayoutManager(LinearLayoutManager(this))
-
+        restTemplate.messageConverters.add(MappingJacksonHttpMessageConverter())
 
         adapter = CustomViewer(this, ArrayList<String>(Arrays.asList("sds","sdfs","xvcv")))
         listView!!.setAdapter(adapter)
@@ -40,7 +48,7 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close)
         drawer.setDrawerListener(toggle)
         toggle.syncState()
-
+        asyncTask!!.execute(null)
         val navigationView = findViewById(R.id.nav_view) as NavigationView
         navigationView.setNavigationItemSelectedListener(this)
     }
@@ -133,6 +141,34 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         val intent = Intent(this, OrderActivity::class.java)
         intent.putExtra("name", name)
         startActivity(intent)
+    }
+
+    inner class GetAllItemsTask internal constructor() : AsyncTask<Void, Void, Boolean>() {
+        var goods : JsonNode? = null
+        override fun doInBackground(vararg params: Void): Boolean? {
+            // TODO: attempt authentication against a network service.
+
+            goods = restTemplate.getForObject(serverAddress+"all_goods/", JsonNode::class.java)
+            println(goods)
+            try {
+                // Simulate network access.
+                Thread.sleep(2000)
+            } catch (e: InterruptedException) {
+                return false
+            }
+
+
+            // TODO: register the new account here.
+            return true
+        }
+
+        override fun onPostExecute(success: Boolean?) {
+
+        }
+
+        override fun onCancelled() {
+
+        }
     }
 
 }
