@@ -13,8 +13,14 @@ import android.support.v7.app.AppCompatActivity
 import android.support.v7.widget.Toolbar
 import android.view.Menu
 import android.view.MenuItem
+import android.widget.TextView
+import com.ifmo.necracker.warehouse_app.model.User
+
+
 
 class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
+
+    var user : User? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,6 +36,9 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
         val navigationView = findViewById(R.id.nav_view) as NavigationView
         navigationView.setNavigationItemSelectedListener(this)
+        user = intent.getSerializableExtra("user") as User
+        (navigationView.getHeaderView(0).findViewById(R.id.loginView)as TextView).text = "Login: "+user!!.login
+        (navigationView.getHeaderView(0).findViewById(R.id.idView)as TextView).text = "Id: "+user!!.id
     }
 
     override fun onBackPressed() {
@@ -63,9 +72,13 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         val id = item.itemId
 
         if (id == R.id.nav_list) {
-            startActivity(Intent(this, ListActivity::class.java))
+            val intent = Intent(this, ListActivity::class.java)
+            intent.putExtra("user", user)
+            startActivity(intent)
         } else if (id == R.id.nav_checkout) {
-            startActivity(Intent(this, CheckoutActivity::class.java))
+            val intent = Intent(this, CheckoutActivity::class.java)
+            intent.putExtra("user", user)
+            startActivity(intent)
         }
 
         val drawer = findViewById(R.id.drawer_layout) as DrawerLayout

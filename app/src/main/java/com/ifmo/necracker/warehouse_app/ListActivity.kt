@@ -1,6 +1,7 @@
 package com.ifmo.necracker.warehouse_app
 
 import android.app.ListActivity
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.os.AsyncTask
@@ -17,19 +18,29 @@ import android.support.v7.widget.RecyclerView
 import android.support.v7.widget.Toolbar
 import android.view.*
 import android.widget.TextView
+import android.widget.Toast
+import com.fasterxml.jackson.core.TreeNode
+import com.fasterxml.jackson.core.type.TypeReference
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.ifmo.necracker.warehouse_app.model.Item
+import com.ifmo.necracker.warehouse_app.model.User
 import org.codehaus.jackson.JsonNode
+import org.json.JSONArray
 import org.springframework.http.converter.json.MappingJacksonHttpMessageConverter
+import org.springframework.web.client.RestClientException
 
 import org.springframework.web.client.RestTemplate
+import java.io.IOException
 import java.util.*
 
 class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
 
     var listView: RecyclerView? = null
-    var adapter : CustomViewer? = null
-    private var  asyncTask : GetAllItemsTask? = GetAllItemsTask()
-    var restTemplate : RestTemplate = RestTemplate()
+    var adapter: CustomViewer? = null
+    private var asyncTask: GetAllItemsTask? = GetAllItemsTask()
+    var restTemplate: RestTemplate = RestTemplate()
     private val serverAddress = "http://10.0.0.105:1487/mh/"
+    var user: User? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,8 +52,7 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         listView!!.setLayoutManager(LinearLayoutManager(this))
         restTemplate.messageConverters.add(MappingJacksonHttpMessageConverter())
 
-        adapter = CustomViewer(this, ArrayList<String>(Arrays.asList("sds","sdfs","xvcv")))
-        listView!!.setAdapter(adapter)
+
         val drawer = findViewById(R.id.drawer_layout) as DrawerLayout
         val toggle = ActionBarDrawerToggle(
                 this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close)
@@ -51,6 +61,10 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         asyncTask!!.execute(null)
         val navigationView = findViewById(R.id.nav_view) as NavigationView
         navigationView.setNavigationItemSelectedListener(this)
+
+        user = intent.getSerializableExtra("user") as User
+        (navigationView.getHeaderView(0).findViewById(R.id.loginView) as TextView).text = "Login: " + user!!.login
+        (navigationView.getHeaderView(0).findViewById(R.id.idView) as TextView).text = "Id: " + user!!.id
     }
 
     override fun onBackPressed() {
@@ -83,9 +97,10 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         // Handle navigation view item clicks here.
         val id = item.itemId
 
-        if (id == R.id.nav_list) {
-        } else if (id == R.id.nav_checkout) {
-            startActivity(Intent(this, CheckoutActivity::class.java))
+        if (id == R.id.nav_checkout) {
+            val intent = Intent(this, CheckoutActivity::class.java)
+            intent.putExtra("user", user)
+            startActivity(intent)
         }
 
         val drawer = findViewById(R.id.drawer_layout) as DrawerLayout
@@ -94,9 +109,7 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
 
-
-
-    inner class CustomViewer(context: Context, private var items: ArrayList<String>) : RecyclerView.Adapter<CustomViewer.ViewHolder>() {
+    inner class CustomViewer(context: Context, private var items: List<Item>) : RecyclerView.Adapter<CustomViewer.ViewHolder>() {
         private var li: LayoutInflater? = null
 
         init {
@@ -110,7 +123,8 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         }
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            holder.firstLine.setText(items.get(position))
+            holder.firstLine.text = "Id: " + items.get(position).id.toString()
+            holder.second.text = "Amount: " + items.get(position).quantity.toString()
         }
 
         override fun getItemId(position: Int): Long {
@@ -123,51 +137,73 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
         inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView), View.OnClickListener {
             val firstLine: TextView
+            val second: TextView
 
             init {
                 itemView.setOnClickListener(this)
                 firstLine = itemView.findViewById(R.id.fist_line) as TextView
+                second = itemView.findViewById(R.id.second) as TextView
             }
 
             override fun onClick(v: View) {
                 //menu for order
-                makeOrder(firstLine.text.toString())
+                makeOrder(Item(firstLine.text.toString().split(" ").last().toInt(), second.text.toString().split(" ").last().toInt()))
             }
         }
     }
 
 
-    fun makeOrder(name: String){
+    fun makeOrder(item: Item) {
         val intent = Intent(this, OrderActivity::class.java)
-        intent.putExtra("name", name)
+        intent.putExtra("item", item)
+        intent.putExtra("user", user)
         startActivity(intent)
     }
 
-    inner class GetAllItemsTask internal constructor() : AsyncTask<Void, Void, Boolean>() {
-        var goods : JsonNode? = null
-        override fun doInBackground(vararg params: Void): Boolean? {
-            // TODO: attempt authentication against a network service.
+    fun makeToast(text: String) {
+        val toast = Toast.makeText(this, text, Toast.LENGTH_LONG)
+        toast.show()
+    }
 
-            goods = restTemplate.getForObject(serverAddress+"all_goods/", JsonNode::class.java)
-            println(goods)
+    fun getContext(): Context {
+        return this
+    }
+
+    inner class GetAllItemsTask internal constructor() : AsyncTask<Void, Void, Boolean>() {
+        private var allGoods = listOf<Item>()
+        private var error = ""
+        override fun doInBackground(vararg params: Void): Boolean? {
             try {
-                // Simulate network access.
-                Thread.sleep(2000)
-            } catch (e: InterruptedException) {
+                val goods = restTemplate.getForObject(serverAddress + "all_goods/", JsonNode::class.java)
+                if (goods == null) {
+                    error = "Empty"
+                    return false
+                }
+                try {
+                    allGoods = (goods.map { Item(it.get("code").asInt(), it.get("count").asInt()) })
+                } catch (e: IOException) {
+
+                }
+            } catch (e: RestClientException) {
+                error = " Unable to connect to server"
                 return false
             }
-
-
-            // TODO: register the new account here.
+            println(allGoods)
             return true
         }
 
         override fun onPostExecute(success: Boolean?) {
 
+            adapter = CustomViewer(getContext(), allGoods)
+            listView!!.setAdapter(adapter)
+            if (!success!!) {
+                makeToast(error)
+            }
+            asyncTask = null
         }
 
         override fun onCancelled() {
-
+            asyncTask = null
         }
     }
 

@@ -1,11 +1,70 @@
 package com.ifmo.necracker.warehouse_app.model
 
 import com.fasterxml.jackson.annotation.JsonProperty
-import java.sql.Date
+import java.io.Serializable
+
 
 /**
  * Created by bigz on 15.11.16.
  */
-class Order(@JsonProperty("id") val id:Long, @JsonProperty("user") val user_id: Int, @JsonProperty("code") val goods_id: Int, @JsonProperty("amount") val quantity: Int, @JsonProperty("type") val type: Int, @JsonProperty("date") var date: Date, @JsonProperty("attempts") var attemts_count: Int,@JsonProperty("status") val status: Int){
+class Order(@JsonProperty("id")
+              val id: Long, @JsonProperty("user")
+              val userId: Int, @JsonProperty("code")
+              val uniqueCode: Int,
+            @JsonProperty("amount")
+              var amount: Int, @JsonProperty("type")
+              var type: Order.RequestType, @JsonProperty("status")
+              val status: Order.RequestStatus) : Serializable {
 
+    constructor(id: Long, userId: Int, uniqueCode: Int, amount: Int) : this(id, userId, uniqueCode, amount, RequestType.BOOKED, RequestStatus.IN_PROGRESS) {
+    }
+
+    override fun toString(): String {
+        return String.format("Order [ user = %d, order = %d, product = %d, amount = %d, type = %s, status = %s]",
+                userId, id, uniqueCode, amount, type.toString(), status.toString())
+    }
+
+    enum class RequestType private constructor(private val text: String) {
+        BOOKED("booked"),
+        PAID("paid"),
+        CANCELED("canceled");
+
+        override fun toString(): String {
+            return text
+        }
+
+        companion object {
+
+            fun getRequestTypeFromString(type: String): RequestType? {
+                when (type) {
+                    "booked" -> return BOOKED
+                    "paid" -> return PAID
+                    "canceled" -> return CANCELED
+                    else -> return null
+                }
+            }
+        }
+    }
+
+    enum class RequestStatus private constructor(private val text: String) {
+        COMPLETED("complete"),
+        IN_PROGRESS("in progress"),
+        CANCELED("canceled");
+
+        override fun toString(): String {
+            return text
+        }
+
+        companion object {
+
+            fun getRequestStatusFromString(type: String): RequestStatus? {
+                when (type) {
+                    "complete" -> return COMPLETED
+                    "in progress" -> return IN_PROGRESS
+                    "canceled" -> return CANCELED
+                    else -> return null
+                }
+            }
+        }
+    }
 }

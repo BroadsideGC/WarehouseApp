@@ -16,12 +16,14 @@ import android.support.v7.widget.RecyclerView
 import android.support.v7.widget.Toolbar
 import android.view.*
 import android.widget.TextView
+import com.ifmo.necracker.warehouse_app.model.User
 import java.util.*
 
 class CheckoutActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
 
     var listView: RecyclerView? = null
     var adapter : CustomViewer? = null
+    var user : User? = null
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_checkout)
@@ -43,6 +45,10 @@ class CheckoutActivity : AppCompatActivity(), NavigationView.OnNavigationItemSel
 
         val navigationView = findViewById(R.id.nav_view) as NavigationView
         navigationView.setNavigationItemSelectedListener(this)
+
+        user = intent.getSerializableExtra("user") as User
+        (navigationView.getHeaderView(0).findViewById(R.id.loginView)as TextView).text = "Login: "+user!!.login
+        (navigationView.getHeaderView(0).findViewById(R.id.idView)as TextView).text = "Id: "+user!!.id
     }
 
     override fun onBackPressed() {
@@ -76,11 +82,10 @@ class CheckoutActivity : AppCompatActivity(), NavigationView.OnNavigationItemSel
         val id = item.itemId
 
         if (id == R.id.nav_list) {
-            startActivity(Intent(this, com.ifmo.necracker.warehouse_app.ListActivity::class.java))
-        } else if (id == R.id.nav_checkout) {
-
+            val intent = Intent(this, com.ifmo.necracker.warehouse_app.ListActivity::class.java)
+            intent.putExtra("user", user)
+            startActivity(intent)
         }
-
         val drawer = findViewById(R.id.drawer_layout) as DrawerLayout
         drawer.closeDrawer(GravityCompat.START)
         return true
