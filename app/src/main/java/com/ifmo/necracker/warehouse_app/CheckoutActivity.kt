@@ -121,7 +121,7 @@ class CheckoutActivity : AppCompatActivity(), NavigationView.OnNavigationItemSel
 
             init {
                 itemView.setOnClickListener(this)
-                firstLine = itemView.findViewById(R.id.fist_line) as TextView
+                firstLine = itemView.findViewById(R.id.itemName) as TextView
             }
 
             override fun onClick(v: View) {
@@ -133,7 +133,7 @@ class CheckoutActivity : AppCompatActivity(), NavigationView.OnNavigationItemSel
 
     fun makeCancel(name: String){
         val intent = Intent(this, CancelActivity::class.java)
-        intent.putExtra("name", name)
+        //intent.putExtra("name1", `@+id/itemName`)
         startActivity(intent)
     }
 }

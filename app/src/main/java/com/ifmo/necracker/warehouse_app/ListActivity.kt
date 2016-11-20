@@ -21,12 +21,13 @@ import android.widget.TextView
 import android.widget.Toast
 import com.fasterxml.jackson.core.TreeNode
 import com.fasterxml.jackson.core.type.TypeReference
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.ifmo.necracker.warehouse_app.model.Item
 import com.ifmo.necracker.warehouse_app.model.User
-import org.codehaus.jackson.JsonNode
 import org.json.JSONArray
-import org.springframework.http.converter.json.MappingJacksonHttpMessageConverter
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
 import org.springframework.web.client.RestClientException
 
 import org.springframework.web.client.RestTemplate
@@ -50,7 +51,7 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
         listView = findViewById(R.id.listView) as RecyclerView
         listView!!.setLayoutManager(LinearLayoutManager(this))
-        restTemplate.messageConverters.add(MappingJacksonHttpMessageConverter())
+        restTemplate.messageConverters.add(MappingJackson2HttpMessageConverter().apply { objectMapper = ObjectMapper().registerKotlinModule() })
 
 
         val drawer = findViewById(R.id.drawer_layout) as DrawerLayout
@@ -123,8 +124,9 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         }
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            holder.firstLine.text = "Id: " + items.get(position).id.toString()
-            holder.second.text = "Amount: " + items.get(position).quantity.toString()
+            holder.itemName.text = items.get(position).name
+            holder.itemIdd.text = "Id: " + items.get(position).id.toString()
+            holder.itemAmount.text = "Amount: " + items.get(position).quantity.toString()
         }
 
         override fun getItemId(position: Int): Long {
@@ -136,18 +138,20 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         }
 
         inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView), View.OnClickListener {
-            val firstLine: TextView
-            val second: TextView
+            val itemName: TextView
+            val itemIdd: TextView
+            val itemAmount: TextView
 
             init {
                 itemView.setOnClickListener(this)
-                firstLine = itemView.findViewById(R.id.fist_line) as TextView
-                second = itemView.findViewById(R.id.second) as TextView
+                itemName = itemView.findViewById(R.id.itemName) as TextView
+                itemIdd = itemView.findViewById(R.id.itemId) as TextView
+                itemAmount = itemView.findViewById(R.id.itemAmount) as TextView
             }
 
             override fun onClick(v: View) {
                 //menu for order
-                makeOrder(Item(firstLine.text.toString().split(" ").last().toInt(), second.text.toString().split(" ").last().toInt()))
+                makeOrder(Item(itemIdd.text.toString().split(" ").last().toInt(), itemAmount.text.toString().split(" ").last().toInt(), itemName.text.toString()))
             }
         }
     }
@@ -180,7 +184,7 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                     return false
                 }
                 try {
-                    allGoods = (goods.map { Item(it.get("code").asInt(), it.get("count").asInt()) })
+                    allGoods = (goods.map { Item(it.get("code").asInt(), it.get("count").asInt(), it.get("name").asText()) })
                 } catch (e: IOException) {
 
                 }
