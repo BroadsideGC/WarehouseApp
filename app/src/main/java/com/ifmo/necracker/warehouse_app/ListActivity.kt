@@ -19,20 +19,24 @@ import android.support.v7.widget.Toolbar
 import android.view.*
 import android.widget.TextView
 import android.widget.Toast
-import com.fasterxml.jackson.core.TreeNode
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.ifmo.necracker.warehouse_app.model.Item
 import com.ifmo.necracker.warehouse_app.model.User
-import org.json.JSONArray
+import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
+import org.springframework.web.client.HttpStatusCodeException
 import org.springframework.web.client.RestClientException
 
 import org.springframework.web.client.RestTemplate
 import java.io.IOException
-import java.util.*
+
+
+
+
+
 
 class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
 
@@ -59,11 +63,11 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close)
         drawer.setDrawerListener(toggle)
         toggle.syncState()
+        user = intent.getSerializableExtra("user") as User
         asyncTask!!.execute(null)
         val navigationView = findViewById(R.id.nav_view) as NavigationView
         navigationView.setNavigationItemSelectedListener(this)
 
-        user = intent.getSerializableExtra("user") as User
         (navigationView.getHeaderView(0).findViewById(R.id.loginView) as TextView).text = "Login: " + user!!.login
         (navigationView.getHeaderView(0).findViewById(R.id.idView) as TextView).text = "Id: " + user!!.id
     }
@@ -177,19 +181,21 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         private var allGoods = listOf<Item>()
         private var error = ""
         override fun doInBackground(vararg params: Void): Boolean? {
+            var response :ResponseEntity<JsonNode>? = null
             try {
-                val goods = restTemplate.getForObject(serverAddress + "all_goods/", JsonNode::class.java)
-                if (goods == null) {
-                    error = "Empty"
-                    return false
-                }
-                try {
-                    allGoods = (goods.map { Item(it.get("code").asInt(), it.get("count").asInt(), it.get("name").asText()) })
-                } catch (e: IOException) {
+                response = restTemplate.getForEntity(serverAddress + "all_goods/", JsonNode::class.java)
+                try{
+                    val mapper = ObjectMapper().registerKotlinModule()
+                    allGoods = mapper.readValue(mapper.treeAsTokens(response.body), object : TypeReference<List<Item>>() {
+                    })
+                }catch (ignored: IOException){
 
                 }
-            } catch (e: RestClientException) {
-                error = " Unable to connect to server"
+            } catch (e: HttpStatusCodeException){
+                error = "Error during getting items"
+            }
+            catch (e: RestClientException) {
+                error = "Unable to connect to server"
                 return false
             }
             println(allGoods)

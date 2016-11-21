@@ -26,7 +26,10 @@ import org.springframework.web.client.RestTemplate
 import android.widget.*
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import org.springframework.http.HttpStatus
+import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
+import org.springframework.web.client.HttpStatusCodeException
 import org.springframework.web.client.RestClientException
 
 
@@ -183,11 +186,11 @@ class LoginActivity : AppCompatActivity() {
      * the user.
      */
     fun requestPremission() {
-        val prem = ActivityCompat.requestPermissions(this, Array(1, { Manifest.permission.INTERNET }), 101)
+        ActivityCompat.requestPermissions(this, Array(1, { Manifest.permission.INTERNET }), 101)
     }
 
     inner class UserLoginTask internal constructor(private val login: String, private val mPassword: String) : AsyncTask<Void, Void, Boolean>() {
-        private var userId = -1
+        private var response: ResponseEntity<Int>? = null
         private var error = ""
         override fun doInBackground(vararg params: Void): Boolean? {
 
@@ -196,23 +199,26 @@ class LoginActivity : AppCompatActivity() {
             println(login)
             println(mPassword)
             try {
-                userId = restTemplate.getForObject(serverAddress + "check_user/" + login + "/" + mPassword, Int::class.java)
+                response = restTemplate.getForEntity(serverAddress + "/user_existence/" + login + "/" + mPassword, Int::class.java)
+            } catch (ignored: HttpStatusCodeException) {
+
             } catch (e: RestClientException) {
+                println(e.message)
                 error = "Unable to connect to server"
                 return false
             }
-
-            if (userId == -1) {
+            if (response == null || response!!.statusCode != HttpStatus.OK) {
                 try {
-                    userId = restTemplate.postForObject(serverAddress + "user/", User(login, mPassword), Int::class.java)
+                    response = restTemplate.postForEntity(serverAddress + "/new_user", User(login, mPassword), Int::class.java)
+                } catch (ignored: HttpStatusCodeException) {
+
                 } catch (e: RestClientException) {
                     error = "Unable to connect to server"
                     return false
                 }
             }
-            println(userId)
-            if (userId == -1) {
-                error = "Fail to register"
+            if (response == null || response!!.statusCode != HttpStatus.OK) {
+                error = "Incorrect password"
                 return false
             }
             return true
@@ -223,7 +229,7 @@ class LoginActivity : AppCompatActivity() {
             showProgress(false)
 
             if (success!!) {
-                loggedSuccess(com.ifmo.necracker.warehouse_app.model.User(userId, login, mPassword))
+                loggedSuccess(com.ifmo.necracker.warehouse_app.model.User(response!!.body, login, mPassword))
                 finish()
             } else {
                 mPasswordView!!.error = error

@@ -1,6 +1,7 @@
 package com.ifmo.necracker.warehouse_app.model
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import java.io.Serializable
 
 
 /**
@@ -13,15 +14,15 @@ data class Order(@JsonProperty("id")
                  @JsonProperty("amount")
                  var amount: Int, @JsonProperty("type")
                  var type: Order.RequestType, @JsonProperty("status")
-                 val status: Order.RequestStatus) {
+                 val status: Order.RequestStatus) :Serializable {
 
     constructor(id: Long, userId: Int, uniqueCode: Int, amount: Int) : this(id, userId, uniqueCode, amount, RequestType.BOOKED, RequestStatus.IN_PROGRESS) {
     }
 
-    override fun toString(): String {
+    /*override fun toString(): String {
         return String.format("Order[user = %d, order = %d, product = %d, amount = %d, type = %s, status = %s]",
                 userId, id, uniqueCode, amount, type.toString(), status.toString())
-    }
+    }*/
 
     enum class RequestType private constructor(private val text: String) {
         BOOKED("booked"),
@@ -46,7 +47,7 @@ data class Order(@JsonProperty("id")
     }
 
     enum class RequestStatus private constructor(private val text: String) {
-        COMPLETED("complete"),
+        DONE("done"),
         IN_PROGRESS("in progress"),
         CANCELED("canceled");
 
@@ -58,7 +59,7 @@ data class Order(@JsonProperty("id")
 
             fun getRequestStatusFromString(type: String): RequestStatus? {
                 when (type) {
-                    "complete" -> return COMPLETED
+                    "done" -> return DONE
                     "in progress" -> return IN_PROGRESS
                     "canceled" -> return CANCELED
                     else -> return null

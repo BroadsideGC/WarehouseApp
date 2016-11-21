@@ -12,7 +12,9 @@ import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.ifmo.necracker.warehouse_app.model.Item
 import com.ifmo.necracker.warehouse_app.model.Order
 import com.ifmo.necracker.warehouse_app.model.User
+import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
+import org.springframework.web.client.HttpStatusCodeException
 import org.springframework.web.client.RestClientException
 import org.springframework.web.client.RestTemplate
 
@@ -61,21 +63,20 @@ class OrderActivity : AppCompatActivity() {
     inner class MakeOrder internal constructor(private val id: Int, private val amount: Int) : AsyncTask<Void, Void, Boolean>() {
         private var error = ""
         override fun doInBackground(vararg params: Void): Boolean? {
-            var response = -1L
+            var response: ResponseEntity<Long>
             var orderId: Long = 0
             try {
-                orderId = restTemplate.getForObject(serverAddress + "new_order", Long::class.java)
+                response = restTemplate.getForEntity(serverAddress + "new_order_number", Long::class.java)
+                orderId = response.body
                 val userId = user!!.id
                 println(orderId.toString() + " " + userId + " " + id + " " + amount)
                 val order = Order(orderId, userId.toString().toInt(), id.toString().toInt(), amount)
-                println(ObjectMapper().writeValueAsString(order))
-                response = restTemplate.postForObject(serverAddress + "book", order, Long::class.java)
+                restTemplate.postForEntity(serverAddress + "/book", order, Long::class.java)
+            } catch (e: HttpStatusCodeException) {
+                error = "Error during booking"
+                return false
             } catch (e: RestClientException) {
                 error = "Unable to connect to server"
-                return false
-            }
-            if (response == -1L) {
-                error = "Error during booking"
                 return false
             }
             return true
