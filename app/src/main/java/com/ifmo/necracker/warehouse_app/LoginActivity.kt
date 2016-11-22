@@ -48,8 +48,7 @@ class LoginActivity : AppCompatActivity() {
     private var mPasswordView: EditText? = null
     private var mProgressView: View? = null
     private var mLoginFormView: View? = null
-    var restTemplate: RestTemplate = RestTemplate()
-    private val serverAddress = "http://10.0.0.105:1487/mh/"
+    private var restTemplate: RestTemplate = RestTemplate()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -200,7 +199,11 @@ class LoginActivity : AppCompatActivity() {
             println(mPassword)
             try {
                 response = restTemplate.getForEntity(serverAddress + "/user_existence/" + login + "/" + mPassword, Int::class.java)
-            } catch (ignored: HttpStatusCodeException) {
+            } catch (e: HttpStatusCodeException) {
+                if (e.statusCode == HttpStatus.INTERNAL_SERVER_ERROR){
+                    error = "Internal server error"
+                    return false
+                }
 
             } catch (e: RestClientException) {
                 println(e.message)
@@ -210,8 +213,11 @@ class LoginActivity : AppCompatActivity() {
             if (response == null || response!!.statusCode != HttpStatus.OK) {
                 try {
                     response = restTemplate.postForEntity(serverAddress + "/new_user", User(login, mPassword), Int::class.java)
-                } catch (ignored: HttpStatusCodeException) {
-
+                } catch (e: HttpStatusCodeException) {
+                    if (e.statusCode == HttpStatus.INTERNAL_SERVER_ERROR){
+                        error = "Internal server error"
+                        return false
+                    }
                 } catch (e: RestClientException) {
                     error = "Unable to connect to server"
                     return false

@@ -36,12 +36,11 @@ import org.springframework.web.client.HttpStatusCodeException
 
 class CheckoutActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
 
-    var listView: RecyclerView? = null
-    var adapter: OrdersViewer? = null
-    private val serverAddress = "http://10.0.0.105:1487/mh/"
-    var asyncTask: GetAllOrdersTask? = GetAllOrdersTask()
-    var restTemplate: RestTemplate = RestTemplate()
-    var user: User? = null
+    private var listView: RecyclerView? = null
+    private var adapter: OrdersViewer? = null
+    private var asyncTask: GetAllOrdersTask? = GetAllOrdersTask()
+    private var restTemplate: RestTemplate = RestTemplate()
+    private var user: User? = null
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_checkout)
@@ -162,7 +161,7 @@ class CheckoutActivity : AppCompatActivity(), NavigationView.OnNavigationItemSel
             }
 
             override fun onClick(v: View) {
-                val statusString = itemStatus.text.split(" ")[1] + if (itemStatus.text.split(" ").size > 2) " "+itemStatus.text.split(" ")[2] else ""
+                val statusString = itemStatus.text.split(" ")[1] + if (itemStatus.text.split(" ").size > 2) " " + itemStatus.text.split(" ")[2] else ""
                 println(statusString)
                 makeCancel(Order(orderId.text.split(" ").last().toLong(),
                         user!!.id, itemIdd.text.split(" ").last().toInt(),
@@ -189,7 +188,7 @@ class CheckoutActivity : AppCompatActivity(), NavigationView.OnNavigationItemSel
         override fun doInBackground(vararg params: Void): Boolean? {
             try {
                 val mapper = ObjectMapper().registerKotlinModule()
-                val requestsJson = restTemplate.getForEntity(serverAddress + "all_user_orders/" + user!!.id, JsonNode::class.java)
+                val requestsJson = restTemplate.getForEntity(serverAddress + "/all_user_orders/" + user!!.id, JsonNode::class.java)
                 println(requestsJson)
                 orders = mapper.readValue(mapper.treeAsTokens(requestsJson.body), object : TypeReference<List<Order>>() {
 

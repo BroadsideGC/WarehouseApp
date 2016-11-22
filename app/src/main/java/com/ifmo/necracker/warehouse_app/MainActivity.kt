@@ -20,7 +20,7 @@ import com.ifmo.necracker.warehouse_app.model.User
 
 class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
 
-    var user : User? = null
+    private var user : User? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

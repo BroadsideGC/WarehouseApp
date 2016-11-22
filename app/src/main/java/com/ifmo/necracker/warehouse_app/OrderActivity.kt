@@ -3,10 +3,7 @@ package com.ifmo.necracker.warehouse_app
 import android.os.AsyncTask
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
-import android.widget.Button
-import android.widget.EditText
-import android.widget.TextView
-import android.widget.Toast
+import android.widget.*
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.ifmo.necracker.warehouse_app.model.Item
@@ -21,16 +18,16 @@ import org.springframework.web.client.RestTemplate
 class OrderActivity : AppCompatActivity() {
 
 
-    val restTemplate = RestTemplate()
-    var amountView: TextView? = null
-    var nameView: TextView? = null
-    var idView: TextView? = null
-    var orderCountView: EditText? = null
-    var orderButton: Button? = null
-    var user: User? = null
-    var item: Item? = null
+    private val restTemplate = RestTemplate()
+    private var amountView: TextView? = null
+    private var nameView: TextView? = null
+    private var idView: TextView? = null
+    private var orderCountView: EditText? = null
+    private var orderButton: Button? = null
+    private var user: User? = null
+    private var item: Item? = null
     private var asyncTask: MakeOrder? = null
-    private val serverAddress = "http://10.0.0.105:1487/mh/"
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_order)
@@ -46,9 +43,14 @@ class OrderActivity : AppCompatActivity() {
         idView!!.text = "Id: " + item!!.id
         amountView!!.text = "Amount: " + item!!.quantity
         orderButton!!.setOnClickListener {
-            if (asyncTask == null) {
-                asyncTask = MakeOrder(item!!.id, orderCountView!!.text.toString().toInt())
+            val count = orderCountView!!.text.toString().toInt()
+            if (count > item!!.quantity) {
+                makeToast("More then avaliable")
+            } else if (asyncTask == null) {
+                asyncTask = MakeOrder(item!!.id, count)
                 asyncTask!!.execute(null)
+            } else {
+                makeToast("Other operation in progress")
             }
 
         }
@@ -63,10 +65,10 @@ class OrderActivity : AppCompatActivity() {
     inner class MakeOrder internal constructor(private val id: Int, private val amount: Int) : AsyncTask<Void, Void, Boolean>() {
         private var error = ""
         override fun doInBackground(vararg params: Void): Boolean? {
-            var response: ResponseEntity<Long>
+            val response: ResponseEntity<Long>
             var orderId: Long = 0
             try {
-                response = restTemplate.getForEntity(serverAddress + "new_order_number", Long::class.java)
+                response = restTemplate.getForEntity(serverAddress + "/new_order_number", Long::class.java)
                 orderId = response.body
                 val userId = user!!.id
                 println(orderId.toString() + " " + userId + " " + id + " " + amount)

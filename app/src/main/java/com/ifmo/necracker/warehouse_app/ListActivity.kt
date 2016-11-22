@@ -6,8 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.os.AsyncTask
 import android.os.Bundle
-import android.support.design.widget.FloatingActionButton
-import android.support.design.widget.Snackbar
 import android.support.design.widget.NavigationView
 import android.support.v4.view.GravityCompat
 import android.support.v4.widget.DrawerLayout
@@ -40,12 +38,11 @@ import java.io.IOException
 
 class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
 
-    var listView: RecyclerView? = null
-    var adapter: CustomViewer? = null
+    private var listView: RecyclerView? = null
+    private var adapter: CustomViewer? = null
     private var asyncTask: GetAllItemsTask? = GetAllItemsTask()
-    var restTemplate: RestTemplate = RestTemplate()
-    private val serverAddress = "http://10.0.0.105:1487/mh/"
-    var user: User? = null
+    private var restTemplate: RestTemplate = RestTemplate()
+    private var user: User? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -183,7 +180,7 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         override fun doInBackground(vararg params: Void): Boolean? {
             var response :ResponseEntity<JsonNode>? = null
             try {
-                response = restTemplate.getForEntity(serverAddress + "all_goods/", JsonNode::class.java)
+                response = restTemplate.getForEntity(serverAddress + "/all_goods/", JsonNode::class.java)
                 try{
                     val mapper = ObjectMapper().registerKotlinModule()
                     allGoods = mapper.readValue(mapper.treeAsTokens(response.body), object : TypeReference<List<Item>>() {
@@ -193,6 +190,7 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 }
             } catch (e: HttpStatusCodeException){
                 error = "Error during getting items"
+                return false
             }
             catch (e: RestClientException) {
                 error = "Unable to connect to server"
