@@ -6,6 +6,6 @@ import java.io.Serializable
 /**
  * Created by bigz on 15.11.16.
  */
-data class Item(@JsonProperty("code") val id: Int,@JsonProperty("count") val quantity: Int, @JsonProperty("name") val name: String) :Serializable {
+data class Item(@JsonProperty("code") val id: Int, @JsonProperty("count") var quantity: Int, @JsonProperty("name") val name: String) :Serializable {
 
 }

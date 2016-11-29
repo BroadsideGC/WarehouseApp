@@ -10,6 +10,7 @@ import android.support.design.widget.Snackbar
 import android.support.design.widget.NavigationView
 import android.support.v4.view.GravityCompat
 import android.support.v4.widget.DrawerLayout
+import android.support.v4.widget.SwipeRefreshLayout
 import android.support.v7.app.ActionBarDrawerToggle
 import android.support.v7.app.AppCompatActivity
 import android.support.v7.widget.LinearLayoutManager
@@ -38,24 +39,28 @@ class CheckoutActivity : AppCompatActivity(), NavigationView.OnNavigationItemSel
 
     private var listView: RecyclerView? = null
     private var adapter: OrdersViewer? = null
-    private var asyncTask: GetAllOrdersTask? = GetAllOrdersTask()
-    private var restTemplate: RestTemplate = RestTemplate()
+    private var asyncTask: GetAllOrdersTask? = null
+    private var restTemplate = com.ifmo.necracker.warehouse_app.restTemplate.restTemplate
     private var user: User? = null
+    private var swipeContainer: SwipeRefreshLayout? = null
+    private val ordersList = mutableListOf<Order>()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_checkout)
         val toolbar = findViewById(R.id.toolbar) as Toolbar
         setSupportActionBar(toolbar)
 
-        restTemplate.messageConverters.add(MappingJackson2HttpMessageConverter().apply { objectMapper = ObjectMapper().registerKotlinModule() })
+        swipeContainer = findViewById(R.id.swipeContainerCheckout) as SwipeRefreshLayout
+        swipeContainer!!.setOnRefreshListener(SwipeRefreshLayout.OnRefreshListener {
+            if (asyncTask == null) {
+                asyncTask = GetAllOrdersTask()
+                asyncTask!!.execute(null)
+            }
+        })
+
         listView = findViewById(R.id.listViewCheckout) as RecyclerView
         listView!!.setLayoutManager(LinearLayoutManager(this))
-        //adapter = OrdersViewer(getContext(), listOf<Order>())
-        //listView!!.setAdapter(adapter)
-
-
-        //adapter = CustomViewer(this, ArrayList<String>(Arrays.asList("s343", "s34s", "xvcfgWv")))
-        //listView!!.setAdapter(adapter)
 
         val drawer = findViewById(R.id.drawer_layout) as DrawerLayout
         val toggle = ActionBarDrawerToggle(
@@ -68,9 +73,15 @@ class CheckoutActivity : AppCompatActivity(), NavigationView.OnNavigationItemSel
         user = intent.getSerializableExtra("user") as User
         println(user)
 
+        adapter = OrdersViewer(this, ordersList)
+        listView!!.setAdapter(adapter)
+
+        if (asyncTask == null) {
+            asyncTask = GetAllOrdersTask()
+            asyncTask!!.execute(null)
+        }
         (navigationView.getHeaderView(0).findViewById(R.id.loginView) as TextView).text = "Login: " + user!!.login
         (navigationView.getHeaderView(0).findViewById(R.id.idView) as TextView).text = "Id: " + user!!.id
-        asyncTask!!.execute(null)
 
     }
 
@@ -161,20 +172,9 @@ class CheckoutActivity : AppCompatActivity(), NavigationView.OnNavigationItemSel
             }
 
             override fun onClick(v: View) {
-                val statusString = itemStatus.text.split(" ")[1] + if (itemStatus.text.split(" ").size > 2) " " + itemStatus.text.split(" ")[2] else ""
-                println(statusString)
-                makeCancel(Order(orderId.text.split(" ").last().toLong(),
-                        user!!.id, itemIdd.text.split(" ").last().toInt(),
-                        itemAmount.text.split(" ").last().toInt(),
-                        Order.RequestType.getRequestTypeFromString(itemType.text.split(" ").last())!!,
-                        Order.RequestStatus.getRequestStatusFromString(statusString)!!))
+                makeCancel(items[this.adapterPosition])
             }
         }
-    }
-
-    fun makeToast(text: String) {
-        val toast = Toast.makeText(this, text, Toast.LENGTH_LONG)
-        toast.show()
     }
 
     fun getContext(): Context {
@@ -206,15 +206,20 @@ class CheckoutActivity : AppCompatActivity(), NavigationView.OnNavigationItemSel
         }
 
         override fun onPostExecute(success: Boolean?) {
-            adapter = OrdersViewer(getContext(), orders)
-            listView!!.setAdapter(adapter)
+
             if (!success!!) {
-                makeToast(error)
+                makeToast(getContext(), error)
+            } else {
+                ordersList.clear()
+                ordersList.addAll(orders)
+                adapter!!.notifyDataSetChanged()
+                swipeContainer!!.isRefreshing = false
             }
             asyncTask = null
         }
 
         override fun onCancelled() {
+            swipeContainer!!.isRefreshing = false
             asyncTask = null
         }
     }

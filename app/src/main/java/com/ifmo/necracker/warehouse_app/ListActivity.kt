@@ -1,5 +1,6 @@
 package com.ifmo.necracker.warehouse_app
 
+import android.app.Activity
 import android.app.ListActivity
 import android.content.ClipData
 import android.content.Context
@@ -12,9 +13,10 @@ import android.support.v4.widget.DrawerLayout
 import android.support.v7.app.ActionBarDrawerToggle
 import android.support.v7.app.AppCompatActivity
 import android.support.v7.widget.LinearLayoutManager
-import android.support.v7.widget.RecyclerView
+
 import android.support.v7.widget.Toolbar
 import android.view.*
+import android.widget.NumberPicker
 import android.widget.TextView
 import android.widget.Toast
 import com.fasterxml.jackson.core.type.TypeReference
@@ -30,6 +32,10 @@ import org.springframework.web.client.RestClientException
 
 import org.springframework.web.client.RestTemplate
 import java.io.IOException
+import android.support.v7.widget.RecyclerView
+import android.widget.OverScroller
+import android.support.v4.widget.SwipeRefreshLayout
+import android.support.v4.widget.SwipeRefreshLayout.OnRefreshListener
 
 
 
@@ -40,20 +46,27 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     private var listView: RecyclerView? = null
     private var adapter: CustomViewer? = null
-    private var asyncTask: GetAllItemsTask? = GetAllItemsTask()
-    private var restTemplate: RestTemplate = RestTemplate()
+    private var asyncTask: GetAllItemsTask? = null
+    private var restTemplate = com.ifmo.necracker.warehouse_app.restTemplate.restTemplate
     private var user: User? = null
+    private val itemList = mutableListOf<Item>()
+    private var swipeContainer: SwipeRefreshLayout? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_list)
         val toolbar = findViewById(R.id.toolbar) as Toolbar
         setSupportActionBar(toolbar)
+        swipeContainer =  findViewById(R.id.swipeContainerList) as SwipeRefreshLayout
+        swipeContainer!!.setOnRefreshListener(OnRefreshListener {
+            if (asyncTask == null){
+                asyncTask = GetAllItemsTask(this)
+                asyncTask!!.execute(null)
+            }
+        })
 
         listView = findViewById(R.id.listView) as RecyclerView
         listView!!.setLayoutManager(LinearLayoutManager(this))
-        restTemplate.messageConverters.add(MappingJackson2HttpMessageConverter().apply { objectMapper = ObjectMapper().registerKotlinModule() })
-
 
         val drawer = findViewById(R.id.drawer_layout) as DrawerLayout
         val toggle = ActionBarDrawerToggle(
@@ -61,9 +74,14 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         drawer.setDrawerListener(toggle)
         toggle.syncState()
         user = intent.getSerializableExtra("user") as User
-        asyncTask!!.execute(null)
+        adapter = CustomViewer(getContext(), itemList)
+        listView!!.setAdapter(adapter)
         val navigationView = findViewById(R.id.nav_view) as NavigationView
         navigationView.setNavigationItemSelectedListener(this)
+        if (asyncTask == null){
+            asyncTask = GetAllItemsTask(this)
+            asyncTask!!.execute(null)
+        }
 
         (navigationView.getHeaderView(0).findViewById(R.id.loginView) as TextView).text = "Login: " + user!!.login
         (navigationView.getHeaderView(0).findViewById(R.id.idView) as TextView).text = "Id: " + user!!.id
@@ -138,6 +156,8 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             return items.size
         }
 
+
+
         inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView), View.OnClickListener {
             val itemName: TextView
             val itemIdd: TextView
@@ -152,7 +172,8 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
             override fun onClick(v: View) {
                 //menu for order
-                makeOrder(Item(itemIdd.text.toString().split(" ").last().toInt(), itemAmount.text.toString().split(" ").last().toInt(), itemName.text.toString()))
+
+                makeOrder(items[this.adapterPosition])
             }
         }
     }
@@ -165,34 +186,38 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         startActivity(intent)
     }
 
-    fun makeToast(text: String) {
-        val toast = Toast.makeText(this, text, Toast.LENGTH_LONG)
-        toast.show()
-    }
 
     fun getContext(): Context {
         return this
     }
 
-    inner class GetAllItemsTask internal constructor() : AsyncTask<Void, Void, Boolean>() {
+    inner class GetAllItemsTask internal constructor(var activity: com.ifmo.necracker.warehouse_app.ListActivity) : AsyncTask<Void, Void, Boolean>() {
         private var allGoods = listOf<Item>()
         private var error = ""
+        private var context: Context? = null
+
+        init {
+            this.context = activity.getContext()
+        }
+
+
+
         override fun doInBackground(vararg params: Void): Boolean? {
-            var response :ResponseEntity<JsonNode>? = null
+            var response: ResponseEntity<JsonNode>? = null
+            println("test")
             try {
                 response = restTemplate.getForEntity(serverAddress + "/all_goods/", JsonNode::class.java)
-                try{
+                try {
                     val mapper = ObjectMapper().registerKotlinModule()
                     allGoods = mapper.readValue(mapper.treeAsTokens(response.body), object : TypeReference<List<Item>>() {
                     })
-                }catch (ignored: IOException){
+                } catch (ignored: IOException) {
 
                 }
-            } catch (e: HttpStatusCodeException){
+            } catch (e: HttpStatusCodeException) {
                 error = "Error during getting items"
                 return false
-            }
-            catch (e: RestClientException) {
+            } catch (e: RestClientException) {
                 error = "Unable to connect to server"
                 return false
             }
@@ -201,16 +226,20 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         }
 
         override fun onPostExecute(success: Boolean?) {
-
-            adapter = CustomViewer(getContext(), allGoods)
-            listView!!.setAdapter(adapter)
             if (!success!!) {
-                makeToast(error)
+                makeToast(getContext(), error)
+            }else{
+                itemList.clear()
+                itemList.addAll(allGoods)
+                adapter!!.notifyDataSetChanged()
+                println(itemList.size)
             }
+            swipeContainer!!.isRefreshing = false
             asyncTask = null
         }
 
         override fun onCancelled() {
+            swipeContainer!!.isRefreshing = false
             asyncTask = null
         }
     }

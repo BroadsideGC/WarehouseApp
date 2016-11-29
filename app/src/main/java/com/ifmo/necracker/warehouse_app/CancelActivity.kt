@@ -1,5 +1,6 @@
 package com.ifmo.necracker.warehouse_app
 
+import android.content.Context
 import android.os.AsyncTask
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
@@ -29,7 +30,7 @@ class CancelActivity : AppCompatActivity() {
     private var user: User? = null
     private var order: Order? = null
     private var asyncTask: AsyncTask<Void, Void, Boolean>? = null
-    private val restTemplate = RestTemplate()
+    private val restTemplate = com.ifmo.necracker.warehouse_app.restTemplate.restTemplate
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,7 +58,7 @@ class CancelActivity : AppCompatActivity() {
                     asyncTask = BuyOrder(order!!.id)
                     asyncTask!!.execute(null)
                 } else {
-                    makeToast("Other operation in progress")
+                    makeToast(this, "Other operation in progress")
                 }
             }
         } else {
@@ -69,7 +70,7 @@ class CancelActivity : AppCompatActivity() {
                     asyncTask = CancelOrder(order!!.id)
                     asyncTask!!.execute(null)
                 } else {
-                    makeToast("Other operation in progress")
+                    makeToast(this, "Other operation in progress")
                 }
             }
         } else {
@@ -77,9 +78,8 @@ class CancelActivity : AppCompatActivity() {
         }
     }
 
-    fun makeToast(text: String) {
-        val toast = Toast.makeText(this, text, Toast.LENGTH_LONG)
-        toast.show()
+    fun getContext(): Context {
+        return this
     }
 
     inner class BuyOrder internal constructor(private val id: Long) : AsyncTask<Void, Void, Boolean>() {
@@ -102,9 +102,9 @@ class CancelActivity : AppCompatActivity() {
         override fun onPostExecute(success: Boolean?) {
             asyncTask = null
             if (!success!!) {
-                makeToast(error)
+                makeToast(getContext(), error)
             } else {
-                makeToast("Success!")
+                makeToast(getContext(), "Success!")
                 order!!.type == Order.RequestType.PAID
                 order!!.status == Order.RequestStatus.DONE
                 orderType!!.text = "Type: " + order!!.type
@@ -139,9 +139,9 @@ class CancelActivity : AppCompatActivity() {
         override fun onPostExecute(success: Boolean?) {
             asyncTask = null
             if (!success!!) {
-                makeToast(error)
+                makeToast(getContext(), error)
             } else {
-                makeToast("Success!")
+                makeToast(getContext(), "Success!")
                 order!!.type == Order.RequestType.CANCELED
                 order!!.status == Order.RequestStatus.CANCELED
                 orderType!!.text = "Type: " + order!!.type

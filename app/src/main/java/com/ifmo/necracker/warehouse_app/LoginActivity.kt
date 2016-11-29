@@ -5,6 +5,7 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.support.v7.app.AppCompatActivity
 import android.app.LoaderManager.LoaderCallbacks
+import android.content.Context
 
 import android.content.CursorLoader
 import android.content.Intent
@@ -21,11 +22,11 @@ import android.text.TextUtils
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import com.fasterxml.jackson.annotation.JsonProperty
-import org.springframework.web.client.RestTemplate
 
 import android.widget.*
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
@@ -48,14 +49,13 @@ class LoginActivity : AppCompatActivity() {
     private var mPasswordView: EditText? = null
     private var mProgressView: View? = null
     private var mLoginFormView: View? = null
-    private var restTemplate: RestTemplate = RestTemplate()
+    private var restTemplate = com.ifmo.necracker.warehouse_app.restTemplate.restTemplate
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
         // Set up the login form.
         mEmailView = findViewById(R.id.email) as AutoCompleteTextView
-        restTemplate.messageConverters.add(MappingJackson2HttpMessageConverter().apply { objectMapper = ObjectMapper().registerKotlinModule() })
         mPasswordView = findViewById(R.id.password) as EditText
         mPasswordView!!.setOnEditorActionListener(TextView.OnEditorActionListener { textView, id, keyEvent ->
             if (id == R.id.login || id == EditorInfo.IME_NULL) {
@@ -70,6 +70,7 @@ class LoginActivity : AppCompatActivity() {
 
         mLoginFormView = findViewById(R.id.login_form)
         mProgressView = findViewById(R.id.login_progress)
+        //mAuthTask!!
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>,
@@ -125,13 +126,12 @@ class LoginActivity : AppCompatActivity() {
             // Show a progress spinner, and kick off a background task to
             // perform the user login attempt.
             showProgress(true)
-            mAuthTask = UserLoginTask(email, password)
+            mAuthTask = UserLoginTask(email, password, this)
             mAuthTask!!.execute(null)
         }
     }
 
     private fun isPasswordValid(password: String): Boolean {
-        //TODO: Replace this with your own logic
         return password.length > 4
     }
 
@@ -175,10 +175,6 @@ class LoginActivity : AppCompatActivity() {
         startActivity(intent)
     }
 
-    fun makeToast(text: String) {
-        val toast = Toast.makeText(this, text, Toast.LENGTH_LONG)
-        toast.show()
-    }
 
     /**
      * Represents an asynchronous login/registration task used to authenticate
@@ -188,9 +184,16 @@ class LoginActivity : AppCompatActivity() {
         ActivityCompat.requestPermissions(this, Array(1, { Manifest.permission.INTERNET }), 101)
     }
 
-    inner class UserLoginTask internal constructor(private val login: String, private val mPassword: String) : AsyncTask<Void, Void, Boolean>() {
+    inner class UserLoginTask internal constructor(private val login: String, private val mPassword: String, loginActivity: LoginActivity) : AsyncTask<Void, Void, Boolean>() {
+
+        private var context: Context? = null
         private var response: ResponseEntity<Int>? = null
         private var error = ""
+
+        init {
+            context = loginActivity.applicationContext
+        }
+
         override fun doInBackground(vararg params: Void): Boolean? {
 
             requestPremission()
@@ -200,7 +203,7 @@ class LoginActivity : AppCompatActivity() {
             try {
                 response = restTemplate.getForEntity(serverAddress + "/user_existence/" + login + "/" + mPassword, Int::class.java)
             } catch (e: HttpStatusCodeException) {
-                if (e.statusCode == HttpStatus.INTERNAL_SERVER_ERROR){
+                if (e.statusCode == HttpStatus.INTERNAL_SERVER_ERROR) {
                     error = "Internal server error"
                     return false
                 }
@@ -214,7 +217,7 @@ class LoginActivity : AppCompatActivity() {
                 try {
                     response = restTemplate.postForEntity(serverAddress + "/new_user", User(login, mPassword), Int::class.java)
                 } catch (e: HttpStatusCodeException) {
-                    if (e.statusCode == HttpStatus.INTERNAL_SERVER_ERROR){
+                    if (e.statusCode == HttpStatus.INTERNAL_SERVER_ERROR) {
                         error = "Internal server error"
                         return false
                     }

@@ -13,12 +13,23 @@
     tools:context="com.ifmo.necracker.warehouse_app.ListActivity"
     tools:showIn="@layout/app_bar_list">
 
+    <android.support.v4.widget.SwipeRefreshLayout
 
-    <android.support.v7.widget.RecyclerView
-        android:id="@+id/listView"
+        xmlns:android="http://schemas.android.com/apk/res/android"
+
+        android:id="@+id/swipeContainerList"
+
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_alignParentBottom="true"
-        android:layout_alignParentRight="true"
-        android:layout_alignParentEnd="true" />
+
+        android:layout_height="match_parent">
+
+
+        <android.support.v7.widget.RecyclerView
+            android:id="@+id/listView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_alignParentBottom="true"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentRight="true" />
+    </android.support.v4.widget.SwipeRefreshLayout>
 </RelativeLayout>
