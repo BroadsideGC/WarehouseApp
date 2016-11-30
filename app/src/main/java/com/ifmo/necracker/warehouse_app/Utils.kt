@@ -21,14 +21,15 @@ fun makeToast(context: Context, text: String) {
 }
 
 val restTemplate = CustomRestTemplate()
-
+val TIMEOUT = 3000
+val MAX_ATTEMPTS_COUNT  = 4
 class CustomRestTemplate()  {
     val restTemplate : RestTemplate
     init {
         restTemplate = RestTemplate()
         val rf = SimpleClientHttpRequestFactory()
-        rf.setConnectTimeout(1000)
-        rf.setReadTimeout(1000)
+        rf.setConnectTimeout(TIMEOUT)
+        rf.setReadTimeout(TIMEOUT)
         restTemplate.messageConverters.add(MappingJackson2HttpMessageConverter().apply { objectMapper = ObjectMapper().registerKotlinModule() })
         restTemplate.requestFactory = rf
 

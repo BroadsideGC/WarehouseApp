@@ -186,21 +186,27 @@ class CheckoutActivity : AppCompatActivity(), NavigationView.OnNavigationItemSel
         private var orders: List<Order> = listOf<Order>()
         private var error = ""
         override fun doInBackground(vararg params: Void): Boolean? {
-            try {
-                val mapper = ObjectMapper().registerKotlinModule()
-                val requestsJson = restTemplate.getForEntity(serverAddress + "/all_user_orders/" + user!!.id, JsonNode::class.java)
-                println(requestsJson)
-                orders = mapper.readValue(mapper.treeAsTokens(requestsJson.body), object : TypeReference<List<Order>>() {
+            for (attempt in 1..MAX_ATTEMPTS_COUNT) {
+                try {
+                    val mapper = ObjectMapper().registerKotlinModule()
+                    val requestsJson = restTemplate.getForEntity(serverAddress + "/all_user_orders/" + user!!.id, JsonNode::class.java)
+                    println(requestsJson)
+                    orders = mapper.readValue(mapper.treeAsTokens(requestsJson.body), object : TypeReference<List<Order>>() {
 
-                })
-                println(orders)
-            } catch(e: HttpStatusCodeException) {
-                error = "Error during getting orders"
-                return false
-            } catch (e: RestClientException) {
-                error = "Unable to connect to server"
-                return false
-            } catch (e: IOException) {
+                    })
+                    println(orders)
+                } catch(e: HttpStatusCodeException) {
+                    error = "Error during getting orders"
+                    return false
+                } catch (e: RestClientException) {
+                    if (attempt == MAX_ATTEMPTS_COUNT) {
+                        error = "Unable to connect to server"
+                        return false
+                    }
+                } catch (e: IOException) {
+                    error = "Unable to parse response"
+                    return false
+                }
             }
             return true
         }

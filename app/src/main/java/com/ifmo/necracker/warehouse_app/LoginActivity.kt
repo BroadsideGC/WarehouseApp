@@ -200,30 +200,41 @@ class LoginActivity : AppCompatActivity() {
 
             println(login)
             println(mPassword)
-            try {
-                response = restTemplate.getForEntity(serverAddress + "/user_existence/" + login + "/" + mPassword, Int::class.java)
-            } catch (e: HttpStatusCodeException) {
-                if (e.statusCode == HttpStatus.INTERNAL_SERVER_ERROR) {
-                    error = "Internal server error"
-                    return false
-                }
 
-            } catch (e: RestClientException) {
-                println(e.message)
-                error = "Unable to connect to server"
-                return false
-            }
-            if (response == null || response!!.statusCode != HttpStatus.OK) {
+            for (attempt in 1..MAX_ATTEMPTS_COUNT) {
                 try {
-                    response = restTemplate.postForEntity(serverAddress + "/new_user", User(login, mPassword), Int::class.java)
+                    response = restTemplate.getForEntity(serverAddress + "/user_existence/" + login + "/" + mPassword, Int::class.java)
+                    break
                 } catch (e: HttpStatusCodeException) {
                     if (e.statusCode == HttpStatus.INTERNAL_SERVER_ERROR) {
                         error = "Internal server error"
                         return false
                     }
+                    break
                 } catch (e: RestClientException) {
-                    error = "Unable to connect to server"
-                    return false
+                    if (attempt == MAX_ATTEMPTS_COUNT) {
+                        error = "Unable to connect to server"
+                        return false
+                    }
+                }
+            }
+            if (response == null || response!!.statusCode != HttpStatus.OK) {
+                for (attempt in 1..MAX_ATTEMPTS_COUNT) {
+                    try {
+                        response = restTemplate.postForEntity(serverAddress + "/new_user", User(login, mPassword), Int::class.java)
+                        break
+                    } catch (e: HttpStatusCodeException) {
+                        if (e.statusCode == HttpStatus.INTERNAL_SERVER_ERROR) {
+                            error = "Internal server error"
+                            return false
+                        }
+                        break
+                    } catch (e: RestClientException) {
+                        if (attempt == MAX_ATTEMPTS_COUNT) {
+                            error = "Unable to connect to server"
+                            return false
+                        }
+                    }
                 }
             }
             if (response == null || response!!.statusCode != HttpStatus.OK) {

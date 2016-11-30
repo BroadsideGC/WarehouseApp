@@ -116,15 +116,19 @@ class OrderActivity : AppCompatActivity() {
         private var count: ResponseEntity<Int>? = null
         private var error = ""
         override fun doInBackground(vararg params: Void): Boolean? {
-
-            try {
-                count = restTemplate.getForEntity(serverAddress + "/goods/" + item!!.id, Int::class.java)
-            } catch(e: HttpStatusCodeException) {
-                error = "Error during getting orders"
-                return false
-            } catch (e: RestClientException) {
-                error = "Unable to connect to server"
-                return false
+            for (attempt in 1..MAX_ATTEMPTS_COUNT) {
+                try {
+                    count = restTemplate.getForEntity(serverAddress + "/goods/" + item!!.id, Int::class.java)
+                    break
+                } catch(e: HttpStatusCodeException) {
+                    error = "Error during getting orders"
+                    return false
+                } catch (e: RestClientException) {
+                    if (attempt == MAX_ATTEMPTS_COUNT) {
+                        error = "Unable to connect to server"
+                        return false
+                    }
+                }
             }
             return true
         }

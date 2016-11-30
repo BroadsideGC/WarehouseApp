@@ -38,10 +38,6 @@ import android.support.v4.widget.SwipeRefreshLayout
 import android.support.v4.widget.SwipeRefreshLayout.OnRefreshListener
 
 
-
-
-
-
 class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
 
     private var listView: RecyclerView? = null
@@ -57,9 +53,9 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         setContentView(R.layout.activity_list)
         val toolbar = findViewById(R.id.toolbar) as Toolbar
         setSupportActionBar(toolbar)
-        swipeContainer =  findViewById(R.id.swipeContainerList) as SwipeRefreshLayout
+        swipeContainer = findViewById(R.id.swipeContainerList) as SwipeRefreshLayout
         swipeContainer!!.setOnRefreshListener(OnRefreshListener {
-            if (asyncTask == null){
+            if (asyncTask == null) {
                 asyncTask = GetAllItemsTask(this)
                 asyncTask!!.execute(null)
             }
@@ -78,7 +74,7 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         listView!!.setAdapter(adapter)
         val navigationView = findViewById(R.id.nav_view) as NavigationView
         navigationView.setNavigationItemSelectedListener(this)
-        if (asyncTask == null){
+        if (asyncTask == null) {
             asyncTask = GetAllItemsTask(this)
             asyncTask!!.execute(null)
         }
@@ -157,7 +153,6 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         }
 
 
-
         inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView), View.OnClickListener {
             val itemName: TextView
             val itemIdd: TextView
@@ -201,25 +196,27 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         }
 
 
-
         override fun doInBackground(vararg params: Void): Boolean? {
             var response: ResponseEntity<JsonNode>? = null
-            println("test")
-            try {
-                response = restTemplate.getForEntity(serverAddress + "/all_goods/", JsonNode::class.java)
+            for (attempt in 1..MAX_ATTEMPTS_COUNT) {
                 try {
-                    val mapper = ObjectMapper().registerKotlinModule()
-                    allGoods = mapper.readValue(mapper.treeAsTokens(response.body), object : TypeReference<List<Item>>() {
-                    })
-                } catch (ignored: IOException) {
+                    response = restTemplate.getForEntity(serverAddress + "/all_goods/", JsonNode::class.java)
+                    try {
+                        val mapper = ObjectMapper().registerKotlinModule()
+                        allGoods = mapper.readValue(mapper.treeAsTokens(response.body), object : TypeReference<List<Item>>() {
+                        })
+                    } catch (ignored: IOException) {
 
+                    }
+                } catch (e: HttpStatusCodeException) {
+                    error = "Error during getting items"
+                    return false
+                } catch (e: RestClientException) {
+                    if (attempt == MAX_ATTEMPTS_COUNT) {
+                        error = "Unable to connect to server"
+                        return false
+                    }
                 }
-            } catch (e: HttpStatusCodeException) {
-                error = "Error during getting items"
-                return false
-            } catch (e: RestClientException) {
-                error = "Unable to connect to server"
-                return false
             }
             println(allGoods)
             return true
@@ -228,7 +225,7 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         override fun onPostExecute(success: Boolean?) {
             if (!success!!) {
                 makeToast(getContext(), error)
-            }else{
+            } else {
                 itemList.clear()
                 itemList.addAll(allGoods)
                 adapter!!.notifyDataSetChanged()

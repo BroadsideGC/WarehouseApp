@@ -85,16 +85,18 @@ class CancelActivity : AppCompatActivity() {
     inner class BuyOrder internal constructor(private val id: Long) : AsyncTask<Void, Void, Boolean>() {
         private var error = ""
         override fun doInBackground(vararg params: Void): Boolean? {
-
-            try {
-                restTemplate.put(serverAddress + "/payment/" + id, null)
-                println("Ready")
-            } catch (e: HttpStatusCodeException) {
-                error = "Error during buying"
-                return false
-            } catch (e: RestClientException) {
-                error = "Unable to connect to server"
-                return false
+            for (attempt in 1..MAX_ATTEMPTS_COUNT) {
+                try {
+                    restTemplate.put(serverAddress + "/payment/" + id, null)
+                } catch (e: HttpStatusCodeException) {
+                    error = "Error during buying"
+                    return false
+                } catch (e: RestClientException) {
+                    if (attempt == MAX_ATTEMPTS_COUNT) {
+                        error = "Unable to connect to server"
+                        return false
+                    }
+                }
             }
             return true
         }
@@ -122,16 +124,19 @@ class CancelActivity : AppCompatActivity() {
     inner class CancelOrder internal constructor(private val id: Long) : AsyncTask<Void, Void, Boolean>() {
         private var error = ""
         override fun doInBackground(vararg params: Void): Boolean? {
-
-            try {
-                restTemplate.put(serverAddress + "/cancellation/" + id, null)
-                println("Ready")
-            } catch (e: HttpStatusCodeException) {
-                error = "Error during cancellation"
-                return false
-            } catch (e: RestClientException) {
-                error = "Unable to connect to server"
-                return false
+            for (attempt in 1..MAX_ATTEMPTS_COUNT) {
+                try {
+                    restTemplate.put(serverAddress + "/cancellation/" + id, null)
+                    println("Ready")
+                } catch (e: HttpStatusCodeException) {
+                    error = "Error during cancellation"
+                    return false
+                } catch (e: RestClientException) {
+                    if (attempt == MAX_ATTEMPTS_COUNT) {
+                        error = "Unable to connect to server"
+                        return false
+                    }
+                }
             }
             return true
         }
