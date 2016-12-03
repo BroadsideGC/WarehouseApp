@@ -13,6 +13,14 @@
     tools:context="com.ifmo.necracker.warehouse_app.CheckoutActivity"
     tools:showIn="@layout/app_bar_checkout">
 
+    <ProgressBar
+        android:id="@+id/orders_progress"
+        style="?android:attr/progressBarStyleLarge"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
+        android:visibility="gone" />
+
     <android.support.v4.widget.SwipeRefreshLayout
 
         xmlns:android="http://schemas.android.com/apk/res/android"

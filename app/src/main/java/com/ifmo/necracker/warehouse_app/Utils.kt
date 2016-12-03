@@ -13,7 +13,7 @@ import org.springframework.web.client.RestTemplate
  * Created by bigz on 22.11.16.
  */
 
-val serverAddress = "http://10.0.0.101:1487/mh"
+val serverAddress = "http://10.0.0.103:1487/mh"
 
 fun makeToast(context: Context, text: String) {
     val toast = Toast.makeText(context, text, Toast.LENGTH_LONG)

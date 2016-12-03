@@ -77,5 +77,13 @@
         android:layout_toRightOf="@+id/buyButton"
         android:layout_toEndOf="@+id/buyButton"
         android:id="@+id/cancelButton" />
+    <ProgressBar
+        android:id="@+id/order_progress"
+        style="?android:attr/progressBarStyleLarge"
+        android:layout_below="@+id/buyButton"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
+        android:visibility="gone" />
 
 </RelativeLayout>

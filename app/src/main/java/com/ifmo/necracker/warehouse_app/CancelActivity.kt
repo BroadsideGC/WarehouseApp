@@ -4,6 +4,8 @@ import android.content.Context
 import android.os.AsyncTask
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
+import android.os.PersistableBundle
+import android.view.View
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
@@ -11,6 +13,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.ifmo.necracker.warehouse_app.model.Item
 import com.ifmo.necracker.warehouse_app.model.Order
+import com.ifmo.necracker.warehouse_app.model.TaskStatus
 import com.ifmo.necracker.warehouse_app.model.User
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
@@ -31,6 +34,7 @@ class CancelActivity : AppCompatActivity() {
     private var order: Order? = null
     private var asyncTask: AsyncTask<Void, Void, Boolean>? = null
     private val restTemplate = com.ifmo.necracker.warehouse_app.restTemplate.restTemplate
+    private var progressView: View? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,6 +47,8 @@ class CancelActivity : AppCompatActivity() {
         itemAmount = findViewById(R.id.actionOrderAmount) as TextView
         orderStatus = findViewById(R.id.actionOrderStatus) as TextView
         orderType = findViewById(R.id.actionOrderType) as TextView
+        progressView = findViewById(R.id.order_progress)
+
 
         user = intent.getSerializableExtra("user") as User
         order = intent.getSerializableExtra("order") as Order
@@ -52,10 +58,31 @@ class CancelActivity : AppCompatActivity() {
         itemAmount!!.text = "Amount: " + order!!.amount
         orderType!!.text = "Type: " + order!!.type
         orderStatus!!.text = "Status: " + order!!.status
+
+        if (savedInstanceState != null) {
+            println("cool")
+            asyncTask = lastCustomNonConfigurationInstance?.let { it as ListActivity.GetAllItemsTask }
+            println("get")
+            asyncTask?.let {
+                println(asyncTask!!.status)
+                if (asyncTask is BuyOrder) {
+                    (asyncTask as BuyOrder).activity = this
+                    if ((asyncTask as BuyOrder).status == TaskStatus.PROCESSING) {
+                        progressView!!.visibility = View.VISIBLE
+                    }
+                } else {
+                    (asyncTask as CancelOrder).activity = this
+                    if ((asyncTask as CancelOrder).status == TaskStatus.PROCESSING) {
+                        progressView!!.visibility = View.VISIBLE
+                    }
+                }
+            }
+        }
         if (order!!.type == Order.RequestType.BOOKED && order!!.status == Order.RequestStatus.DONE) {
             buyButton!!.setOnClickListener {
                 if (asyncTask == null) {
-                    asyncTask = BuyOrder(order!!.id)
+                    asyncTask = BuyOrder(order!!.id, this)
+                    progressView!!.visibility = View.VISIBLE
                     asyncTask!!.execute(null)
                 } else {
                     makeToast(this, "Other operation in progress")
@@ -67,7 +94,8 @@ class CancelActivity : AppCompatActivity() {
         if (order!!.type == Order.RequestType.BOOKED) {
             cancelButton!!.setOnClickListener {
                 if (asyncTask == null) {
-                    asyncTask = CancelOrder(order!!.id)
+                    asyncTask = CancelOrder(order!!.id, this)
+                    progressView!!.visibility = View.VISIBLE
                     asyncTask!!.execute(null)
                 } else {
                     makeToast(this, "Other operation in progress")
@@ -78,13 +106,37 @@ class CancelActivity : AppCompatActivity() {
         }
     }
 
-    fun getContext(): Context {
-        return this
+    override fun onRetainCustomNonConfigurationInstance(): Any? {
+        println(asyncTask?.let { "have" })
+        return asyncTask
     }
 
-    inner class BuyOrder internal constructor(private val id: Long) : AsyncTask<Void, Void, Boolean>() {
+    override fun onSaveInstanceState(outState: Bundle?, outPersistentState: PersistableBundle?) {
+        super.onSaveInstanceState(outState, outPersistentState)
+    }
+
+    override fun onRestoreInstanceState(savedInstanceState: Bundle?) {
+        super.onRestoreInstanceState(savedInstanceState)
+        asyncTask?.let {
+            if (asyncTask is BuyOrder) {
+                (asyncTask as BuyOrder).activity = this
+                if ((asyncTask as BuyOrder).status == TaskStatus.PROCESSING) {
+                    progressView!!.visibility = View.VISIBLE
+                }
+            } else {
+                (asyncTask as CancelOrder).activity = this
+                if ((asyncTask as CancelOrder).status == TaskStatus.PROCESSING) {
+                    progressView!!.visibility = View.VISIBLE
+                }
+            }
+        }
+    }
+
+    inner class BuyOrder internal constructor(private val id: Long, var activity: CancelActivity) : AsyncTask<Void, Void, Boolean>() {
         private var error = ""
+        var status = TaskStatus.NONE
         override fun doInBackground(vararg params: Void): Boolean? {
+            status = TaskStatus.PROCESSING
             for (attempt in 1..MAX_ATTEMPTS_COUNT) {
                 try {
                     restTemplate.put(serverAddress + "/payment/" + id, null)
@@ -102,28 +154,35 @@ class CancelActivity : AppCompatActivity() {
         }
 
         override fun onPostExecute(success: Boolean?) {
-            asyncTask = null
+            status = TaskStatus.READY
+            activity.progressView!!.visibility = View.GONE
             if (!success!!) {
-                makeToast(getContext(), error)
+                makeToast(activity.applicationContext, error)
             } else {
-                makeToast(getContext(), "Success!")
-                order!!.type == Order.RequestType.PAID
-                order!!.status == Order.RequestStatus.DONE
-                orderType!!.text = "Type: " + order!!.type
-                orderStatus!!.text = "Status: " + order!!.status
-                buyButton!!.isEnabled = false
-                cancelButton!!.isEnabled = false
+                makeToast(activity.applicationContext, "Success!")
+                activity.order!!.type = Order.RequestType.PAID
+                activity.order!!.status = Order.RequestStatus.DONE
+                activity.orderType!!.text = "Type: " + order!!.type
+                activity.orderStatus!!.text = "Status: " + order!!.status
+                activity.buyButton!!.isEnabled = false
+                activity.cancelButton!!.isEnabled = false
+                activity.intent.putExtra("order", order)
             }
+            activity.asyncTask = null
         }
 
         override fun onCancelled() {
-            asyncTask = null
+            status = TaskStatus.READY
+            activity.progressView!!.visibility = View.GONE
+            activity.asyncTask = null
         }
     }
 
-    inner class CancelOrder internal constructor(private val id: Long) : AsyncTask<Void, Void, Boolean>() {
+    inner class CancelOrder internal constructor(private val id: Long, var activity: CancelActivity) : AsyncTask<Void, Void, Boolean>() {
         private var error = ""
+        var status = TaskStatus.NONE
         override fun doInBackground(vararg params: Void): Boolean? {
+            status = TaskStatus.PROCESSING
             for (attempt in 1..MAX_ATTEMPTS_COUNT) {
                 try {
                     restTemplate.put(serverAddress + "/cancellation/" + id, null)
@@ -142,22 +201,27 @@ class CancelActivity : AppCompatActivity() {
         }
 
         override fun onPostExecute(success: Boolean?) {
-            asyncTask = null
+            status = TaskStatus.READY
+            activity.progressView!!.visibility = View.GONE
             if (!success!!) {
-                makeToast(getContext(), error)
+                makeToast(activity.applicationContext, error)
             } else {
-                makeToast(getContext(), "Success!")
-                order!!.type == Order.RequestType.CANCELED
-                order!!.status == Order.RequestStatus.CANCELED
-                orderType!!.text = "Type: " + order!!.type
-                orderStatus!!.text = "Status: " + order!!.status
-                buyButton!!.isEnabled = false
-                cancelButton!!.isEnabled = false
+                makeToast(activity.applicationContext, "Success!")
+                activity.order!!.type = Order.RequestType.CANCELED
+                activity.order!!.status = Order.RequestStatus.CANCELED
+                activity.orderType!!.text = "Type: " + order!!.type
+                activity.orderStatus!!.text = "Status: " + order!!.status
+                activity.buyButton!!.isEnabled = false
+                activity.cancelButton!!.isEnabled = false
+                activity.intent.putExtra("order", order)
             }
+            activity.asyncTask = null
         }
 
         override fun onCancelled() {
-            asyncTask = null
+            activity.progressView!!.visibility = View.GONE
+            status = TaskStatus.READY
+            activity.asyncTask = null
         }
     }
 }

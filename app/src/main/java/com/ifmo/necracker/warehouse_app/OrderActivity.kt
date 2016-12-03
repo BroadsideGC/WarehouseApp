@@ -4,7 +4,9 @@ import android.content.Context
 import android.os.AsyncTask
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
+import android.os.PersistableBundle
 import android.support.v4.widget.SwipeRefreshLayout
+import android.view.View
 import android.widget.*
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.JsonNode
@@ -12,6 +14,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.ifmo.necracker.warehouse_app.model.Item
 import com.ifmo.necracker.warehouse_app.model.Order
+import com.ifmo.necracker.warehouse_app.model.TaskStatus
 import com.ifmo.necracker.warehouse_app.model.User
 import org.springframework.http.ResponseEntity
 import org.springframework.http.client.ClientHttpRequestFactory
@@ -35,6 +38,7 @@ class OrderActivity : AppCompatActivity() {
     private var item: Item? = null
     private var asyncTask: AsyncTask<Void, Void, Boolean>? = null
     private var swipeContainer: SwipeRefreshLayout? = null
+    private var progressView: View? = null
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,12 +49,33 @@ class OrderActivity : AppCompatActivity() {
         nameView = findViewById(R.id.idNameView) as TextView
         orderButton = findViewById(R.id.buttonOrder) as Button
         orderCountView = findViewById(R.id.toOrderId) as EditText
+        progressView = findViewById(R.id.order_progress) as View
         user = intent.getSerializableExtra("user") as User
-        item = intent.getSerializableExtra("item") as Item
+        if (savedInstanceState != null) {
+            println("cool")
+            asyncTask = lastCustomNonConfigurationInstance?.let { it as ListActivity.GetAllItemsTask }
+            println("get")
+            asyncTask?.let {
+                println(asyncTask!!.status)
+                if (asyncTask is MakeOrder) {
+                    (asyncTask as MakeOrder).activity = this
+                    if ((asyncTask as MakeOrder).status == TaskStatus.PROCESSING) {
+                        progressView!!.visibility = View.VISIBLE
+                    }
+                }else {
+                    (asyncTask as UpdateItemTask).activity = this
+                    if ((asyncTask as UpdateItemTask).status == TaskStatus.PROCESSING) {
+                        progressView!!.visibility = View.VISIBLE
+                    }
+                }
+            }
+        } else {
+            item = intent.getSerializableExtra("item") as Item
+        }
         swipeContainer = findViewById(R.id.swipeContainerOrder) as SwipeRefreshLayout
         swipeContainer!!.setOnRefreshListener(SwipeRefreshLayout.OnRefreshListener {
             if (asyncTask == null) {
-                asyncTask = UpdateItemTask()
+                asyncTask = UpdateItemTask(this)
                 asyncTask!!.execute(null)
             }
         })
@@ -62,7 +87,8 @@ class OrderActivity : AppCompatActivity() {
             if (count > item!!.quantity) {
                 makeToast(this, "More then avaliable")
             } else if (asyncTask == null) {
-                asyncTask = MakeOrder(item!!.id, count)
+                asyncTask = MakeOrder(item!!.id, count, this)
+                progressView!!.visibility = View.VISIBLE
                 asyncTask!!.execute(null)
             } else {
                 makeToast(this, "Other operation in progress")
@@ -71,14 +97,41 @@ class OrderActivity : AppCompatActivity() {
         }
     }
 
-    fun getContext(): Context {
-        return this
+    override fun onRetainCustomNonConfigurationInstance(): Any? {
+        println(asyncTask?.let { "have" })
+        return asyncTask
     }
 
-    inner class MakeOrder internal constructor(private val id: Int, private val amount: Int) : AsyncTask<Void, Void, Boolean>() {
+    override fun onSaveInstanceState(outState: Bundle?, outPersistentState: PersistableBundle?) {
+        super.onSaveInstanceState(outState, outPersistentState)
+        outState?.putSerializable("item", item)
+    }
+
+    override fun onRestoreInstanceState(savedInstanceState: Bundle?) {
+        super.onRestoreInstanceState(savedInstanceState)
+        item = savedInstanceState?.getSerializable("item") as Item
+        asyncTask?.let {
+            if (asyncTask is MakeOrder) {
+                (asyncTask as MakeOrder).activity = this
+                if ((asyncTask as MakeOrder).status == TaskStatus.PROCESSING) {
+                    progressView!!.visibility = View.VISIBLE
+                }
+            }else {
+                (asyncTask as UpdateItemTask).activity = this
+                if ((asyncTask as UpdateItemTask).status == TaskStatus.PROCESSING) {
+                    progressView!!.visibility = View.VISIBLE
+                }
+            }
+        }
+    }
+
+    inner class MakeOrder internal constructor(private val id: Int, private val amount: Int, var activity: OrderActivity) : AsyncTask<Void, Void, Boolean>() {
         private var error = ""
+        var status = TaskStatus.NONE
+
         override fun doInBackground(vararg params: Void): Boolean? {
             val response: ResponseEntity<Long>
+            status = TaskStatus.PROCESSING
             var orderId: Long = 0
             try {
                 response = restTemplate.getForEntity(serverAddress + "/new_order_number", Long::class.java)
@@ -99,23 +152,29 @@ class OrderActivity : AppCompatActivity() {
         }
 
         override fun onPostExecute(success: Boolean?) {
+            status = TaskStatus.READY
+            activity.progressView!!.visibility = View.GONE
             asyncTask = null
             if (!success!!) {
-                makeToast(getContext(), error)
+                makeToast(activity.applicationContext, error)
             } else {
-                makeToast(getContext(), "Success!")
+                makeToast(activity.applicationContext, "Success!")
             }
         }
 
         override fun onCancelled() {
-            asyncTask = null
+            status = TaskStatus.READY
+            activity.progressView!!.visibility = View.GONE
+            activity.asyncTask = null
         }
     }
 
-    inner class UpdateItemTask internal constructor() : AsyncTask<Void, Void, Boolean>() {
+    inner class UpdateItemTask internal constructor(var activity: OrderActivity) : AsyncTask<Void, Void, Boolean>() {
         private var count: ResponseEntity<Int>? = null
         private var error = ""
+        var status = TaskStatus.NONE
         override fun doInBackground(vararg params: Void): Boolean? {
+            status=TaskStatus.PROCESSING
             for (attempt in 1..MAX_ATTEMPTS_COUNT) {
                 try {
                     count = restTemplate.getForEntity(serverAddress + "/goods/" + item!!.id, Int::class.java)
@@ -134,21 +193,24 @@ class OrderActivity : AppCompatActivity() {
         }
 
         override fun onPostExecute(success: Boolean?) {
-
+            status = TaskStatus.READY
+            activity.progressView!!.visibility = View.GONE
             if (!success!!) {
-                makeToast(getContext(), error)
+                makeToast(activity.applicationContext, error)
             } else {
                 println("Count: " + count!!.body)
-                item!!.quantity = count!!.body
-                amountView!!.text = "Amount: " + item!!.quantity
-                swipeContainer!!.isRefreshing = false
+                activity.item!!.quantity = count!!.body
+                activity.amountView!!.text = "Amount: " + item!!.quantity
+                activity.swipeContainer!!.isRefreshing = false
             }
-            asyncTask = null
+            activity.asyncTask = null
         }
 
         override fun onCancelled() {
-            swipeContainer!!.isRefreshing = false
-            asyncTask = null
+            status = TaskStatus.READY
+            activity.progressView!!.visibility = View.GONE
+            activity.swipeContainer!!.isRefreshing = false
+            activity.asyncTask = null
         }
     }
 }

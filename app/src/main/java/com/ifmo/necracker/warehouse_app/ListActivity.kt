@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.AsyncTask
 import android.os.Bundle
+import android.os.PersistableBundle
 import android.support.design.widget.NavigationView
 import android.support.v4.view.GravityCompat
 import android.support.v4.widget.DrawerLayout
@@ -36,6 +37,7 @@ import android.support.v7.widget.RecyclerView
 import android.widget.OverScroller
 import android.support.v4.widget.SwipeRefreshLayout
 import android.support.v4.widget.SwipeRefreshLayout.OnRefreshListener
+import com.ifmo.necracker.warehouse_app.model.TaskStatus
 
 
 class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
@@ -47,6 +49,7 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     private var user: User? = null
     private val itemList = mutableListOf<Item>()
     private var swipeContainer: SwipeRefreshLayout? = null
+    private var progressView: View? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -61,6 +64,7 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             }
         })
 
+        progressView =findViewById(R.id.items_progress)
         listView = findViewById(R.id.listView) as RecyclerView
         listView!!.setLayoutManager(LinearLayoutManager(this))
 
@@ -74,14 +78,16 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         listView!!.setAdapter(adapter)
         val navigationView = findViewById(R.id.nav_view) as NavigationView
         navigationView.setNavigationItemSelectedListener(this)
+
         if (asyncTask == null) {
             asyncTask = GetAllItemsTask(this)
             asyncTask!!.execute(null)
+            progressView!!.visibility = View.VISIBLE
         }
-
         (navigationView.getHeaderView(0).findViewById(R.id.loginView) as TextView).text = "Login: " + user!!.login
         (navigationView.getHeaderView(0).findViewById(R.id.idView) as TextView).text = "Id: " + user!!.id
     }
+
 
     override fun onBackPressed() {
         val drawer = findViewById(R.id.drawer_layout) as DrawerLayout
@@ -166,8 +172,6 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             }
 
             override fun onClick(v: View) {
-                //menu for order
-
                 makeOrder(items[this.adapterPosition])
             }
         }
@@ -189,14 +193,10 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     inner class GetAllItemsTask internal constructor(var activity: com.ifmo.necracker.warehouse_app.ListActivity) : AsyncTask<Void, Void, Boolean>() {
         private var allGoods = listOf<Item>()
         private var error = ""
-        private var context: Context? = null
-
-        init {
-            this.context = activity.getContext()
-        }
-
+        var status = TaskStatus.NONE
 
         override fun doInBackground(vararg params: Void): Boolean? {
+            status = TaskStatus.PROCESSING
             var response: ResponseEntity<JsonNode>? = null
             for (attempt in 1..MAX_ATTEMPTS_COUNT) {
                 try {
@@ -223,20 +223,25 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         }
 
         override fun onPostExecute(success: Boolean?) {
+            status = TaskStatus.READY
+            activity.progressView!!.visibility = View.GONE
             if (!success!!) {
-                makeToast(getContext(), error)
+                makeToast(activity.applicationContext, error)
             } else {
-                itemList.clear()
-                itemList.addAll(allGoods)
-                adapter!!.notifyDataSetChanged()
+                activity.itemList.clear()
+                activity.itemList.addAll(allGoods)
+                activity.adapter!!.notifyDataSetChanged()
                 println(itemList.size)
             }
-            swipeContainer!!.isRefreshing = false
-            asyncTask = null
+            activity.swipeContainer!!.isRefreshing = false
+            activity.asyncTask = null
+
         }
 
         override fun onCancelled() {
-            swipeContainer!!.isRefreshing = false
+            status = TaskStatus.READY
+            activity.progressView!!.visibility = View.GONE
+            activity.swipeContainer!!.isRefreshing = false
             asyncTask = null
         }
     }

@@ -14,7 +14,7 @@ data class Order(@JsonProperty("id")
                  @JsonProperty("amount")
                  var amount: Int, @JsonProperty("type")
                  var type: Order.RequestType, @JsonProperty("status")
-                 val status: Order.RequestStatus) :Serializable {
+                 var status: Order.RequestStatus) :Serializable {
 
     constructor(id: Long, userId: Int, uniqueCode: Int, amount: Int) : this(id, userId, uniqueCode, amount, RequestType.BOOKED, RequestStatus.IN_PROGRESS) {
     }

@@ -17,6 +17,7 @@ import android.support.v7.widget.LinearLayoutManager
 import android.support.v7.widget.RecyclerView
 import android.support.v7.widget.Toolbar
 import android.view.*
+import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import com.fasterxml.jackson.core.type.TypeReference
@@ -44,12 +45,14 @@ class CheckoutActivity : AppCompatActivity(), NavigationView.OnNavigationItemSel
     private var user: User? = null
     private var swipeContainer: SwipeRefreshLayout? = null
     private val ordersList = mutableListOf<Order>()
+    private var progressView : View? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_checkout)
         val toolbar = findViewById(R.id.toolbar) as Toolbar
         setSupportActionBar(toolbar)
+        progressView = findViewById(R.id.orders_progress) as View
 
         swipeContainer = findViewById(R.id.swipeContainerCheckout) as SwipeRefreshLayout
         swipeContainer!!.setOnRefreshListener(SwipeRefreshLayout.OnRefreshListener {
@@ -78,6 +81,7 @@ class CheckoutActivity : AppCompatActivity(), NavigationView.OnNavigationItemSel
 
         if (asyncTask == null) {
             asyncTask = GetAllOrdersTask()
+            progressView!!.visibility = View.VISIBLE
             asyncTask!!.execute(null)
         }
         (navigationView.getHeaderView(0).findViewById(R.id.loginView) as TextView).text = "Login: " + user!!.login
@@ -212,7 +216,7 @@ class CheckoutActivity : AppCompatActivity(), NavigationView.OnNavigationItemSel
         }
 
         override fun onPostExecute(success: Boolean?) {
-
+            progressView!!.visibility = View.GONE
             if (!success!!) {
                 makeToast(getContext(), error)
             } else {
@@ -225,6 +229,7 @@ class CheckoutActivity : AppCompatActivity(), NavigationView.OnNavigationItemSel
         }
 
         override fun onCancelled() {
+            progressView!!.visibility = View.GONE
             swipeContainer!!.isRefreshing = false
             asyncTask = null
         }

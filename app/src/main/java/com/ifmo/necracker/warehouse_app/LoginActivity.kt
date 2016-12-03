@@ -16,9 +16,11 @@ import android.os.AsyncTask
 
 import android.os.Build
 import android.os.Bundle
+import android.os.PersistableBundle
 import android.provider.ContactsContract
 import android.support.v4.app.ActivityCompat
 import android.text.TextUtils
+import android.util.Log
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import com.fasterxml.jackson.annotation.JsonProperty
@@ -26,6 +28,9 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import android.widget.*
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import com.ifmo.necracker.warehouse_app.model.Order
+import com.ifmo.necracker.warehouse_app.model.TaskStatus
+import com.ifmo.necracker.warehouse_app.model.User
 
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -55,9 +60,9 @@ class LoginActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
         // Set up the login form.
-        mEmailView = findViewById(R.id.email) as AutoCompleteTextView
+        mEmailView = findViewById(R.id.username) as AutoCompleteTextView
         mPasswordView = findViewById(R.id.password) as EditText
-        mPasswordView!!.setOnEditorActionListener(TextView.OnEditorActionListener { textView, id, keyEvent ->
+        mPasswordView?.setOnEditorActionListener(TextView.OnEditorActionListener { textView, id, keyEvent ->
             if (id == R.id.login || id == EditorInfo.IME_NULL) {
                 attemptLogin()
                 return@OnEditorActionListener true
@@ -70,7 +75,37 @@ class LoginActivity : AppCompatActivity() {
 
         mLoginFormView = findViewById(R.id.login_form)
         mProgressView = findViewById(R.id.login_progress)
-        //mAuthTask!!
+        if (savedInstanceState != null) {
+            println("cool")
+            mAuthTask = lastCustomNonConfigurationInstance?.let { it as UserLoginTask }
+            println("get")
+            mAuthTask?.let {
+                println(mAuthTask!!.status)
+                mAuthTask!!.loginActivity = this
+                if (mAuthTask!!.status == TaskStatus.PROCESSING) {
+                    showProgress(true)
+                }
+            }
+        }
+    }
+
+    override fun onRetainCustomNonConfigurationInstance(): Any? {
+        println(mAuthTask?.let { "have" })
+        return mAuthTask
+    }
+
+    override fun onSaveInstanceState(outState: Bundle?, outPersistentState: PersistableBundle?) {
+        super.onSaveInstanceState(outState, outPersistentState)
+    }
+
+    override fun onRestoreInstanceState(savedInstanceState: Bundle?) {
+        super.onRestoreInstanceState(savedInstanceState)
+        mAuthTask?.let {
+            mAuthTask!!.loginActivity = this
+            if (mAuthTask!!.status == TaskStatus.PROCESSING) {
+                showProgress(true)
+            }
+        }
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>,
@@ -87,11 +122,8 @@ class LoginActivity : AppCompatActivity() {
      * errors are presented and no actual login attempt is made.
      */
 
-    data class User(@JsonProperty("login") var login: String, @JsonProperty("password") val password: String) {
+    data class UnknownUser(@JsonProperty("login") var login: String, @JsonProperty("password") val password: String) {
 
-        /*override fun toString(): String {
-            return String.format("User [ Login = %s, password = %s]", login, password)
-        }*/
     }
 
     private fun attemptLogin() {
@@ -100,11 +132,11 @@ class LoginActivity : AppCompatActivity() {
         }
 
         // Reset errors.
-        mEmailView!!.error = null
-        mPasswordView!!.error = null
+        mEmailView?.error = null
+        mPasswordView?.error = null
 
         // Store values at the time of the login attempt.
-        val email = mEmailView!!.text.toString()
+        val userName = mEmailView!!.text.toString()
         val password = mPasswordView!!.text.toString()
 
         var cancel = false
@@ -112,7 +144,7 @@ class LoginActivity : AppCompatActivity() {
 
         // Check for a valid password, if the user entered one.
         if (!isPasswordValid(password)) {
-            mPasswordView!!.error = getString(R.string.error_invalid_password)
+            mPasswordView?.error = getString(R.string.error_invalid_password)
             focusView = mPasswordView
             cancel = true
         }
@@ -126,8 +158,8 @@ class LoginActivity : AppCompatActivity() {
             // Show a progress spinner, and kick off a background task to
             // perform the user login attempt.
             showProgress(true)
-            mAuthTask = UserLoginTask(email, password, this)
-            mAuthTask!!.execute(null)
+            mAuthTask = UserLoginTask(userName, password, this)
+            mAuthTask?.execute(null)
         }
     }
 
@@ -163,8 +195,8 @@ class LoginActivity : AppCompatActivity() {
         } else {
             // The ViewPropertyAnimator APIs are not available, so simply show
             // and hide the relevant UI components.
-            mProgressView!!.visibility = if (show) View.VISIBLE else View.GONE
-            mLoginFormView!!.visibility = if (show) View.GONE else View.VISIBLE
+            mProgressView?.visibility = if (show) View.VISIBLE else View.GONE
+            mLoginFormView?.visibility = if (show) View.GONE else View.VISIBLE
         }
     }
 
@@ -184,22 +216,19 @@ class LoginActivity : AppCompatActivity() {
         ActivityCompat.requestPermissions(this, Array(1, { Manifest.permission.INTERNET }), 101)
     }
 
-    inner class UserLoginTask internal constructor(private val login: String, private val mPassword: String, loginActivity: LoginActivity) : AsyncTask<Void, Void, Boolean>() {
+    inner class UserLoginTask internal constructor(private val login: String, private val mPassword: String, var loginActivity: LoginActivity) : AsyncTask<Void, Void, Boolean>() {
 
-        private var context: Context? = null
         private var response: ResponseEntity<Int>? = null
         private var error = ""
-
-        init {
-            context = loginActivity.applicationContext
-        }
+        var status = TaskStatus.NONE
 
         override fun doInBackground(vararg params: Void): Boolean? {
 
             requestPremission()
 
-            println(login)
-            println(mPassword)
+            status = TaskStatus.PROCESSING
+            println("Login " + login)
+            println("Pass " + mPassword)
 
             for (attempt in 1..MAX_ATTEMPTS_COUNT) {
                 try {
@@ -221,7 +250,7 @@ class LoginActivity : AppCompatActivity() {
             if (response == null || response!!.statusCode != HttpStatus.OK) {
                 for (attempt in 1..MAX_ATTEMPTS_COUNT) {
                     try {
-                        response = restTemplate.postForEntity(serverAddress + "/new_user", User(login, mPassword), Int::class.java)
+                        response = restTemplate.postForEntity(serverAddress + "/new_user", UnknownUser(login, mPassword), Int::class.java)
                         break
                     } catch (e: HttpStatusCodeException) {
                         if (e.statusCode == HttpStatus.INTERNAL_SERVER_ERROR) {
@@ -245,21 +274,22 @@ class LoginActivity : AppCompatActivity() {
         }
 
         override fun onPostExecute(success: Boolean?) {
-            mAuthTask = null
-            showProgress(false)
+            status = TaskStatus.READY
+            loginActivity.mAuthTask = null
+            loginActivity.showProgress(false)
 
             if (success!!) {
-                loggedSuccess(com.ifmo.necracker.warehouse_app.model.User(response!!.body, login, mPassword))
+                loginActivity.loggedSuccess(User(response!!.body, login, mPassword))
                 finish()
             } else {
-                mPasswordView!!.error = error
-                mPasswordView!!.requestFocus()
+                loginActivity.mPasswordView!!.error = error
+                loginActivity.mPasswordView!!.requestFocus()
             }
         }
 
         override fun onCancelled() {
             mAuthTask = null
-            showProgress(false)
+            loginActivity.showProgress(false)
         }
     }
 
