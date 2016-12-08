@@ -11,10 +11,7 @@ import android.widget.TextView
 import android.widget.Toast
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
-import com.ifmo.necracker.warehouse_app.model.Item
-import com.ifmo.necracker.warehouse_app.model.Order
-import com.ifmo.necracker.warehouse_app.model.TaskStatus
-import com.ifmo.necracker.warehouse_app.model.User
+import com.ifmo.necracker.warehouse_app.model.*
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
 import org.springframework.web.client.HttpStatusCodeException
@@ -52,10 +49,9 @@ class CancelActivity : AppCompatActivity() {
 
         user = intent.getSerializableExtra("user") as User
         order = intent.getSerializableExtra("order") as Order
-        restTemplate.messageConverters.add(MappingJackson2HttpMessageConverter().apply { objectMapper = ObjectMapper().registerKotlinModule() })
         orderId!!.text = "Order id: " + order!!.id.toString()
-        itemId!!.text = "Item id: " + order!!.uniqueCode
-        itemAmount!!.text = "Amount: " + order!!.amount
+        itemId!!.text = "Item name: ${order!!.name}"
+        itemAmount!!.text = "Amount: ${order!!.amount}"
         orderType!!.text = "Type: " + order!!.type
         orderStatus!!.text = "Status: " + order!!.status
 
@@ -78,7 +74,7 @@ class CancelActivity : AppCompatActivity() {
                 }
             }
         }
-        if (order!!.type == Order.RequestType.BOOKED && order!!.status == Order.RequestStatus.DONE) {
+        if (order!!.type == Request.RequestType.BOOKED && order!!.status == Request.RequestStatus.DONE) {
             buyButton!!.setOnClickListener {
                 if (asyncTask == null) {
                     asyncTask = BuyOrder(order!!.id, this)
@@ -91,7 +87,7 @@ class CancelActivity : AppCompatActivity() {
         } else {
             buyButton!!.isEnabled = false
         }
-        if (order!!.type == Order.RequestType.BOOKED) {
+        if (order!!.type == Request.RequestType.BOOKED) {
             cancelButton!!.setOnClickListener {
                 if (asyncTask == null) {
                     asyncTask = CancelOrder(order!!.id, this)
@@ -160,8 +156,8 @@ class CancelActivity : AppCompatActivity() {
                 makeToast(activity.applicationContext, error)
             } else {
                 makeToast(activity.applicationContext, "Success!")
-                activity.order!!.type = Order.RequestType.PAID
-                activity.order!!.status = Order.RequestStatus.DONE
+                activity.order!!.type = Request.RequestType.PAID
+                activity.order!!.status = Request.RequestStatus.DONE
                 activity.orderType!!.text = "Type: " + order!!.type
                 activity.orderStatus!!.text = "Status: " + order!!.status
                 activity.buyButton!!.isEnabled = false
@@ -207,8 +203,8 @@ class CancelActivity : AppCompatActivity() {
                 makeToast(activity.applicationContext, error)
             } else {
                 makeToast(activity.applicationContext, "Success!")
-                activity.order!!.type = Order.RequestType.CANCELED
-                activity.order!!.status = Order.RequestStatus.CANCELED
+                activity.order!!.type = Request.RequestType.CANCELED
+                activity.order!!.status = Request.RequestStatus.CANCELED
                 activity.orderType!!.text = "Type: " + order!!.type
                 activity.orderStatus!!.text = "Status: " + order!!.status
                 activity.buyButton!!.isEnabled = false

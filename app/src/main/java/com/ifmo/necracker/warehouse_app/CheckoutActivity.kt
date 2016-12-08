@@ -24,7 +24,7 @@ import com.fasterxml.jackson.core.type.TypeReference
 
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 
-import com.ifmo.necracker.warehouse_app.model.Order
+import com.ifmo.necracker.warehouse_app.model.Request
 import com.ifmo.necracker.warehouse_app.model.User
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
 import org.springframework.web.client.RestClientException
@@ -32,6 +32,7 @@ import org.springframework.web.client.RestTemplate
 import java.io.IOException
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.JsonNode
+import com.ifmo.necracker.warehouse_app.model.Order
 
 import org.springframework.web.client.HttpStatusCodeException
 
@@ -145,7 +146,7 @@ class CheckoutActivity : AppCompatActivity(), NavigationView.OnNavigationItemSel
         override fun onBindViewHolder(holder: OrderViewHolder, position: Int) {
             // holder.itemName.text = items.get(position).
             holder.orderId.text = "OrderId: " + items[position].id.toString()
-            holder.itemIdd.text = "Id: " + items.get(position).uniqueCode.toString()
+            holder.itemIdd.text = "Id: " + items.get(position).name
             holder.itemAmount.text = "Amount: " + items.get(position).amount.toString()
             holder.itemType.text = "Type: " + items.get(position).type.toString()
             holder.itemStatus.text = "Status: " + items.get(position).status.toString()

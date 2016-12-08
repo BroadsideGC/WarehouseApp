@@ -13,7 +13,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.ifmo.necracker.warehouse_app.model.Item
-import com.ifmo.necracker.warehouse_app.model.Order
+import com.ifmo.necracker.warehouse_app.model.Request
 import com.ifmo.necracker.warehouse_app.model.TaskStatus
 import com.ifmo.necracker.warehouse_app.model.User
 import org.springframework.http.ResponseEntity
@@ -51,6 +51,7 @@ class OrderActivity : AppCompatActivity() {
         orderCountView = findViewById(R.id.toOrderId) as EditText
         progressView = findViewById(R.id.order_progress) as View
         user = intent.getSerializableExtra("user") as User
+        item = intent.getSerializableExtra("item") as Item
         if (savedInstanceState != null) {
             println("cool")
             asyncTask = lastCustomNonConfigurationInstance?.let { it as ListActivity.GetAllItemsTask }
@@ -62,16 +63,16 @@ class OrderActivity : AppCompatActivity() {
                     if ((asyncTask as MakeOrder).status == TaskStatus.PROCESSING) {
                         progressView!!.visibility = View.VISIBLE
                     }
-                }else {
+                } else {
                     (asyncTask as UpdateItemTask).activity = this
                     if ((asyncTask as UpdateItemTask).status == TaskStatus.PROCESSING) {
                         progressView!!.visibility = View.VISIBLE
                     }
                 }
             }
-        } else {
-            item = intent.getSerializableExtra("item") as Item
         }
+
+
         swipeContainer = findViewById(R.id.swipeContainerOrder) as SwipeRefreshLayout
         swipeContainer!!.setOnRefreshListener(SwipeRefreshLayout.OnRefreshListener {
             if (asyncTask == null) {
@@ -81,7 +82,7 @@ class OrderActivity : AppCompatActivity() {
         })
         nameView!!.text = item!!.name
         idView!!.text = "Id: " + item!!.id
-        amountView!!.text = "Amount: " + item!!.quantity
+        amountView!!.text = "Availabale amount: " + item!!.quantity
         orderButton!!.setOnClickListener {
             val count = orderCountView!!.text.toString().toInt()
             if (count > item!!.quantity) {
@@ -104,19 +105,19 @@ class OrderActivity : AppCompatActivity() {
 
     override fun onSaveInstanceState(outState: Bundle?, outPersistentState: PersistableBundle?) {
         super.onSaveInstanceState(outState, outPersistentState)
-        outState?.putSerializable("item", item)
+        intent.putExtra("item", item)
     }
 
     override fun onRestoreInstanceState(savedInstanceState: Bundle?) {
         super.onRestoreInstanceState(savedInstanceState)
-        item = savedInstanceState?.getSerializable("item") as Item
+        item = intent.getSerializableExtra("item") as Item
         asyncTask?.let {
             if (asyncTask is MakeOrder) {
                 (asyncTask as MakeOrder).activity = this
                 if ((asyncTask as MakeOrder).status == TaskStatus.PROCESSING) {
                     progressView!!.visibility = View.VISIBLE
                 }
-            }else {
+            } else {
                 (asyncTask as UpdateItemTask).activity = this
                 if ((asyncTask as UpdateItemTask).status == TaskStatus.PROCESSING) {
                     progressView!!.visibility = View.VISIBLE
@@ -138,7 +139,7 @@ class OrderActivity : AppCompatActivity() {
                 orderId = response.body
                 val userId = user!!.id
                 println(orderId.toString() + " " + userId + " " + id + " " + amount)
-                val order = Order(orderId, userId.toString().toInt(), id.toString().toInt(), amount)
+                val order = Request(orderId, userId.toString().toInt(), id.toString().toInt(), amount)
                 restTemplate.postForEntity(serverAddress + "/book", order, Long::class.java)
             } catch (e: HttpStatusCodeException) {
                 error = "Error during booking"
@@ -174,7 +175,7 @@ class OrderActivity : AppCompatActivity() {
         private var error = ""
         var status = TaskStatus.NONE
         override fun doInBackground(vararg params: Void): Boolean? {
-            status=TaskStatus.PROCESSING
+            status = TaskStatus.PROCESSING
             for (attempt in 1..MAX_ATTEMPTS_COUNT) {
                 try {
                     count = restTemplate.getForEntity(serverAddress + "/goods/" + item!!.id, Int::class.java)
@@ -200,7 +201,7 @@ class OrderActivity : AppCompatActivity() {
             } else {
                 println("Count: " + count!!.body)
                 activity.item!!.quantity = count!!.body
-                activity.amountView!!.text = "Amount: " + item!!.quantity
+                activity.amountView!!.text = "Availabale amount: " + item!!.quantity
                 activity.swipeContainer!!.isRefreshing = false
             }
             activity.asyncTask = null

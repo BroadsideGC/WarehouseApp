@@ -28,7 +28,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import android.widget.*
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
-import com.ifmo.necracker.warehouse_app.model.Order
+import com.ifmo.necracker.warehouse_app.model.Request
 import com.ifmo.necracker.warehouse_app.model.TaskStatus
 import com.ifmo.necracker.warehouse_app.model.User
 
