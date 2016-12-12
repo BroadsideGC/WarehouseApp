@@ -1,12 +1,9 @@
 package com.ifmo.necracker.warehouse_app
 
-import android.app.ListActivity
 import android.content.Context
 import android.content.Intent
 import android.os.AsyncTask
 import android.os.Bundle
-import android.support.design.widget.FloatingActionButton
-import android.support.design.widget.Snackbar
 import android.support.design.widget.NavigationView
 import android.support.v4.view.GravityCompat
 import android.support.v4.widget.DrawerLayout
@@ -17,24 +14,16 @@ import android.support.v7.widget.LinearLayoutManager
 import android.support.v7.widget.RecyclerView
 import android.support.v7.widget.Toolbar
 import android.view.*
-import android.widget.ProgressBar
 import android.widget.TextView
-import android.widget.Toast
 import com.fasterxml.jackson.core.type.TypeReference
-
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
-
-import com.ifmo.necracker.warehouse_app.model.Request
-import com.ifmo.necracker.warehouse_app.model.User
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
-import org.springframework.web.client.RestClientException
-import org.springframework.web.client.RestTemplate
-import java.io.IOException
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.ifmo.necracker.warehouse_app.model.Order
-
+import com.ifmo.necracker.warehouse_app.model.User
 import org.springframework.web.client.HttpStatusCodeException
+import org.springframework.web.client.RestClientException
+import java.io.IOException
 
 
 class CheckoutActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
@@ -46,7 +35,7 @@ class CheckoutActivity : AppCompatActivity(), NavigationView.OnNavigationItemSel
     private var user: User? = null
     private var swipeContainer: SwipeRefreshLayout? = null
     private val ordersList = mutableListOf<Order>()
-    private var progressView : View? = null
+    private var progressView: View? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,7 +45,7 @@ class CheckoutActivity : AppCompatActivity(), NavigationView.OnNavigationItemSel
         progressView = findViewById(R.id.orders_progress) as View
 
         swipeContainer = findViewById(R.id.swipeContainerCheckout) as SwipeRefreshLayout
-        swipeContainer!!.setOnRefreshListener(SwipeRefreshLayout.OnRefreshListener {
+        swipeContainer!!.setOnRefreshListener({
             if (asyncTask == null) {
                 asyncTask = GetAllOrdersTask()
                 asyncTask!!.execute(null)
@@ -64,7 +53,7 @@ class CheckoutActivity : AppCompatActivity(), NavigationView.OnNavigationItemSel
         })
 
         listView = findViewById(R.id.listViewCheckout) as RecyclerView
-        listView!!.setLayoutManager(LinearLayoutManager(this))
+        listView!!.layoutManager = LinearLayoutManager(this)
 
         val drawer = findViewById(R.id.drawer_layout) as DrawerLayout
         val toggle = ActionBarDrawerToggle(
@@ -75,18 +64,17 @@ class CheckoutActivity : AppCompatActivity(), NavigationView.OnNavigationItemSel
         val navigationView = findViewById(R.id.nav_view) as NavigationView
         navigationView.setNavigationItemSelectedListener(this)
         user = intent.getSerializableExtra("user") as User
-        println(user)
 
         adapter = OrdersViewer(this, ordersList)
-        listView!!.setAdapter(adapter)
+        listView!!.adapter = adapter
 
         if (asyncTask == null) {
             asyncTask = GetAllOrdersTask()
             progressView!!.visibility = View.VISIBLE
             asyncTask!!.execute(null)
         }
-        (navigationView.getHeaderView(0).findViewById(R.id.loginView) as TextView).text = "Login: " + user!!.login
-        (navigationView.getHeaderView(0).findViewById(R.id.idView) as TextView).text = "Id: " + user!!.id
+        (navigationView.getHeaderView(0).findViewById(R.id.loginView) as TextView).text = String.format(getString(R.string.string_username), user!!.login)
+        (navigationView.getHeaderView(0).findViewById(R.id.idView) as TextView).text = String.format(getString(R.string.string_id), user!!.id)
 
     }
 
@@ -105,10 +93,6 @@ class CheckoutActivity : AppCompatActivity(), NavigationView.OnNavigationItemSel
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        val id = item.itemId
 
         //noinspection SimplifiableIfStatement
 
@@ -144,21 +128,18 @@ class CheckoutActivity : AppCompatActivity(), NavigationView.OnNavigationItemSel
         }
 
         override fun onBindViewHolder(holder: OrderViewHolder, position: Int) {
-            // holder.itemName.text = items.get(position).
-            holder.orderId.text = "OrderId: " + items[position].id.toString()
-            holder.itemIdd.text = "Id: " + items.get(position).name
-            holder.itemAmount.text = "Amount: " + items.get(position).amount.toString()
-            holder.itemType.text = "Type: " + items.get(position).type.toString()
-            holder.itemStatus.text = "Status: " + items.get(position).status.toString()
+            holder.orderId.text = String.format("Order" + getString(R.string.string_id), items[position].id)
+            holder.itemIdd.text = "Name: ${items[position].name}"
+            holder.itemAmount.text = String.format(getString(R.string.string_amount), items[position].amount)
+            holder.itemType.text = String.format(getString(R.string.string_type), items[position].type)
+            holder.itemStatus.text = String.format(getString(R.string.string_status), items[position].status)
         }
 
         override fun getItemId(position: Int): Long {
-            return items.get(position).hashCode().toLong()
+            return items[position].hashCode().toLong()
         }
 
-        override fun getItemCount(): Int {
-            return items.size
-        }
+        override fun getItemCount(): Int = items.size
 
         inner class OrderViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView), View.OnClickListener {
             val orderId: TextView
@@ -188,18 +169,15 @@ class CheckoutActivity : AppCompatActivity(), NavigationView.OnNavigationItemSel
 
 
     inner class GetAllOrdersTask internal constructor() : AsyncTask<Void, Void, Boolean>() {
-        private var orders: List<Order> = listOf<Order>()
+        private var orders = listOf<Order>()
         private var error = ""
         override fun doInBackground(vararg params: Void): Boolean? {
             for (attempt in 1..MAX_ATTEMPTS_COUNT) {
                 try {
                     val mapper = ObjectMapper().registerKotlinModule()
-                    val requestsJson = restTemplate.getForEntity(serverAddress + "/all_user_orders/" + user!!.id, JsonNode::class.java)
-                    println(requestsJson)
+                    val requestsJson = restTemplate.getForEntity("$serverAddress/all_user_orders/${user!!.id}", JsonNode::class.java)
                     orders = mapper.readValue(mapper.treeAsTokens(requestsJson.body), object : TypeReference<List<Order>>() {
-
                     })
-                    println(orders)
                 } catch(e: HttpStatusCodeException) {
                     error = "Error during getting orders"
                     return false
@@ -238,7 +216,6 @@ class CheckoutActivity : AppCompatActivity(), NavigationView.OnNavigationItemSel
 
     fun makeCancel(order: Order) {
         val intent = Intent(this, CancelActivity::class.java)
-        println(order)
         intent.putExtra("order", order)
         intent.putExtra("user", user)
         startActivity(intent)

@@ -1,29 +1,21 @@
 package com.ifmo.necracker.warehouse_app
 
-import android.content.Context
 import android.os.AsyncTask
-import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import android.os.PersistableBundle
 import android.support.v4.widget.SwipeRefreshLayout
+import android.support.v7.app.AppCompatActivity
 import android.view.View
-import android.widget.*
-import com.fasterxml.jackson.core.type.TypeReference
-import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import android.widget.Button
+import android.widget.EditText
+import android.widget.TextView
 import com.ifmo.necracker.warehouse_app.model.Item
 import com.ifmo.necracker.warehouse_app.model.Request
 import com.ifmo.necracker.warehouse_app.model.TaskStatus
 import com.ifmo.necracker.warehouse_app.model.User
 import org.springframework.http.ResponseEntity
-import org.springframework.http.client.ClientHttpRequestFactory
-import org.springframework.http.client.SimpleClientHttpRequestFactory
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
 import org.springframework.web.client.HttpStatusCodeException
 import org.springframework.web.client.RestClientException
-import org.springframework.web.client.RestTemplate
-import java.io.IOException
 
 class OrderActivity : AppCompatActivity() {
 
@@ -53,11 +45,8 @@ class OrderActivity : AppCompatActivity() {
         user = intent.getSerializableExtra("user") as User
         item = intent.getSerializableExtra("item") as Item
         if (savedInstanceState != null) {
-            println("cool")
             asyncTask = lastCustomNonConfigurationInstance?.let { it as ListActivity.GetAllItemsTask }
-            println("get")
             asyncTask?.let {
-                println(asyncTask!!.status)
                 if (asyncTask is MakeOrder) {
                     (asyncTask as MakeOrder).activity = this
                     if ((asyncTask as MakeOrder).status == TaskStatus.PROCESSING) {
@@ -74,15 +63,15 @@ class OrderActivity : AppCompatActivity() {
 
 
         swipeContainer = findViewById(R.id.swipeContainerOrder) as SwipeRefreshLayout
-        swipeContainer!!.setOnRefreshListener(SwipeRefreshLayout.OnRefreshListener {
+        swipeContainer!!.setOnRefreshListener({
             if (asyncTask == null) {
                 asyncTask = UpdateItemTask(this)
                 asyncTask!!.execute(null)
             }
         })
         nameView!!.text = item!!.name
-        idView!!.text = "Id: " + item!!.id
-        amountView!!.text = "Availabale amount: " + item!!.quantity
+        idView!!.text = String.format(getString(R.string.string_id), item!!.id)
+        amountView!!.text = String.format("Availabale " + getString(R.string.string_amount), item!!.quantity)
         orderButton!!.setOnClickListener {
             val count = orderCountView!!.text.toString().toInt()
             if (count > item!!.quantity) {
@@ -99,7 +88,6 @@ class OrderActivity : AppCompatActivity() {
     }
 
     override fun onRetainCustomNonConfigurationInstance(): Any? {
-        println(asyncTask?.let { "have" })
         return asyncTask
     }
 
@@ -133,12 +121,11 @@ class OrderActivity : AppCompatActivity() {
         override fun doInBackground(vararg params: Void): Boolean? {
             val response: ResponseEntity<Long>
             status = TaskStatus.PROCESSING
-            var orderId: Long = 0
+            val orderId: Long
             try {
-                response = restTemplate.getForEntity(serverAddress + "/new_order_number", Long::class.java)
+                response = restTemplate.getForEntity("$serverAddress/new_order_number", Long::class.java)
                 orderId = response.body
                 val userId = user!!.id
-                println(orderId.toString() + " " + userId + " " + id + " " + amount)
                 val order = Request(orderId, userId.toString().toInt(), id.toString().toInt(), amount)
                 restTemplate.postForEntity(serverAddress + "/book", order, Long::class.java)
             } catch (e: HttpStatusCodeException) {
@@ -178,7 +165,7 @@ class OrderActivity : AppCompatActivity() {
             status = TaskStatus.PROCESSING
             for (attempt in 1..MAX_ATTEMPTS_COUNT) {
                 try {
-                    count = restTemplate.getForEntity(serverAddress + "/goods/" + item!!.id, Int::class.java)
+                    count = restTemplate.getForEntity("$serverAddress/goods/${item!!.id}", Int::class.java)
                     break
                 } catch(e: HttpStatusCodeException) {
                     error = "Error during getting orders"
@@ -199,9 +186,8 @@ class OrderActivity : AppCompatActivity() {
             if (!success!!) {
                 makeToast(activity.applicationContext, error)
             } else {
-                println("Count: " + count!!.body)
                 activity.item!!.quantity = count!!.body
-                activity.amountView!!.text = "Availabale amount: " + item!!.quantity
+                activity.amountView!!.text = String.format("Availabale " + getString(R.string.string_amount), item!!.quantity)
                 activity.swipeContainer!!.isRefreshing = false
             }
             activity.asyncTask = null

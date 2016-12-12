@@ -4,6 +4,11 @@
     <!-- Strings related to login -->
     <string name="prompt_username">Username</string>
     <string name="prompt_password">Password</string>
+    <string name="string_username">Username: %s</string>
+    <string name="string_id">ID: %d</string>
+    <string name="string_amount">amount: %d</string>
+    <string name="string_type">Type: %s</string>
+    <string name="string_status">ID: %s</string>
     <string name="action_sign_in">Sign in or register</string>
     <string name="action_sign_in_short">Sign in</string>
     <string name="error_invalid_username">This username address is invalid</string>

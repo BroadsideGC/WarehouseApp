@@ -1,22 +1,18 @@
 package com.ifmo.necracker.warehouse_app
 
-import android.content.Context
 import android.os.AsyncTask
-import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import android.os.PersistableBundle
+import android.support.v7.app.AppCompatActivity
 import android.view.View
 import android.widget.Button
 import android.widget.TextView
-import android.widget.Toast
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
-import com.ifmo.necracker.warehouse_app.model.*
-import org.springframework.http.ResponseEntity
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
+import com.ifmo.necracker.warehouse_app.model.Order
+import com.ifmo.necracker.warehouse_app.model.Request
+import com.ifmo.necracker.warehouse_app.model.TaskStatus
+import com.ifmo.necracker.warehouse_app.model.User
 import org.springframework.web.client.HttpStatusCodeException
 import org.springframework.web.client.RestClientException
-import org.springframework.web.client.RestTemplate
 
 class CancelActivity : AppCompatActivity() {
 
@@ -49,18 +45,15 @@ class CancelActivity : AppCompatActivity() {
 
         user = intent.getSerializableExtra("user") as User
         order = intent.getSerializableExtra("order") as Order
-        orderId!!.text = "Order id: " + order!!.id.toString()
-        itemId!!.text = "Item name: ${order!!.name}"
-        itemAmount!!.text = "Amount: ${order!!.amount}"
-        orderType!!.text = "Type: " + order!!.type
-        orderStatus!!.text = "Status: " + order!!.status
+        orderId!!.text = String.format("Order" + getString(R.string.string_id), order!!.id)
+        itemId!!.text = order!!.name
+        itemAmount!!.text = String.format(getString(R.string.string_amount), order!!.amount)
+        orderType!!.text = String.format(getString(R.string.string_type), order!!.type)
+        orderStatus!!.text = String.format(getString(R.string.string_status), order!!.status)
 
         if (savedInstanceState != null) {
-            println("cool")
             asyncTask = lastCustomNonConfigurationInstance?.let { it as ListActivity.GetAllItemsTask }
-            println("get")
             asyncTask?.let {
-                println(asyncTask!!.status)
                 if (asyncTask is BuyOrder) {
                     (asyncTask as BuyOrder).activity = this
                     if ((asyncTask as BuyOrder).status == TaskStatus.PROCESSING) {
@@ -103,7 +96,6 @@ class CancelActivity : AppCompatActivity() {
     }
 
     override fun onRetainCustomNonConfigurationInstance(): Any? {
-        println(asyncTask?.let { "have" })
         return asyncTask
     }
 
@@ -135,7 +127,7 @@ class CancelActivity : AppCompatActivity() {
             status = TaskStatus.PROCESSING
             for (attempt in 1..MAX_ATTEMPTS_COUNT) {
                 try {
-                    restTemplate.put(serverAddress + "/payment/" + id, null)
+                    restTemplate.put("$serverAddress/payment/$id", null)
                 } catch (e: HttpStatusCodeException) {
                     error = "Error during buying"
                     return false
@@ -157,9 +149,9 @@ class CancelActivity : AppCompatActivity() {
             } else {
                 makeToast(activity.applicationContext, "Success!")
                 activity.order!!.type = Request.RequestType.PAID
-                activity.order!!.status = Request.RequestStatus.DONE
-                activity.orderType!!.text = "Type: " + order!!.type
-                activity.orderStatus!!.text = "Status: " + order!!.status
+                activity.order!!.status = Request.RequestStatus.IN_PROGRESS
+                activity.orderType!!.text = String.format(getString(R.string.string_type), order!!.type)
+                activity.orderStatus!!.text = String.format(getString(R.string.string_status), order!!.status)
                 activity.buyButton!!.isEnabled = false
                 activity.cancelButton!!.isEnabled = false
                 activity.intent.putExtra("order", order)
@@ -181,8 +173,7 @@ class CancelActivity : AppCompatActivity() {
             status = TaskStatus.PROCESSING
             for (attempt in 1..MAX_ATTEMPTS_COUNT) {
                 try {
-                    restTemplate.put(serverAddress + "/cancellation/" + id, null)
-                    println("Ready")
+                    restTemplate.put("$serverAddress/cancellation/$id", null)
                 } catch (e: HttpStatusCodeException) {
                     error = "Error during cancellation"
                     return false
@@ -205,8 +196,8 @@ class CancelActivity : AppCompatActivity() {
                 makeToast(activity.applicationContext, "Success!")
                 activity.order!!.type = Request.RequestType.CANCELED
                 activity.order!!.status = Request.RequestStatus.CANCELED
-                activity.orderType!!.text = "Type: " + order!!.type
-                activity.orderStatus!!.text = "Status: " + order!!.status
+                activity.orderType!!.text = String.format(getString(R.string.string_type), order!!.type)
+                activity.orderStatus!!.text = String.format(getString(R.string.string_status), order!!.status)
                 activity.buyButton!!.isEnabled = false
                 activity.cancelButton!!.isEnabled = false
                 activity.intent.putExtra("order", order)

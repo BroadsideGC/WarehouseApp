@@ -2,9 +2,6 @@ package com.ifmo.necracker.warehouse_app
 
 import android.content.Intent
 import android.os.Bundle
-import android.support.design.widget.FloatingActionButton
-import android.support.design.widget.Snackbar
-import android.view.View
 import android.support.design.widget.NavigationView
 import android.support.v4.view.GravityCompat
 import android.support.v4.widget.DrawerLayout
@@ -17,10 +14,9 @@ import android.widget.TextView
 import com.ifmo.necracker.warehouse_app.model.User
 
 
-
 class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
 
-    private var user : User? = null
+    private var user: User? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,8 +33,8 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         val navigationView = findViewById(R.id.nav_view) as NavigationView
         navigationView.setNavigationItemSelectedListener(this)
         user = intent.getSerializableExtra("user") as User
-        (navigationView.getHeaderView(0).findViewById(R.id.loginView)as TextView).text = "Login: "+user!!.login
-        (navigationView.getHeaderView(0).findViewById(R.id.idView)as TextView).text = "Id: "+user!!.id
+        (navigationView.getHeaderView(0).findViewById(R.id.loginView) as TextView).text = String.format(getString(R.string.string_username), user!!.login)
+        (navigationView.getHeaderView(0).findViewById(R.id.idView) as TextView).text = String.format(getString(R.string.string_id), user!!.id)
     }
 
     override fun onBackPressed() {
@@ -56,10 +52,6 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        val id = item.itemId
 
         //noinspection SimplifiableIfStatement
 

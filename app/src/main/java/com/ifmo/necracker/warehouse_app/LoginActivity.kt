@@ -3,38 +3,24 @@ package com.ifmo.necracker.warehouse_app
 import android.Manifest
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
-import android.support.v7.app.AppCompatActivity
-import android.app.LoaderManager.LoaderCallbacks
-import android.content.Context
-
-import android.content.CursorLoader
 import android.content.Intent
-import android.content.Loader
-import android.database.Cursor
-import android.net.Uri
 import android.os.AsyncTask
-
 import android.os.Build
 import android.os.Bundle
 import android.os.PersistableBundle
-import android.provider.ContactsContract
 import android.support.v4.app.ActivityCompat
-import android.text.TextUtils
-import android.util.Log
+import android.support.v7.app.AppCompatActivity
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import android.widget.AutoCompleteTextView
+import android.widget.Button
+import android.widget.EditText
+import android.widget.TextView
 import com.fasterxml.jackson.annotation.JsonProperty
-
-import android.widget.*
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
-import com.ifmo.necracker.warehouse_app.model.Request
 import com.ifmo.necracker.warehouse_app.model.TaskStatus
 import com.ifmo.necracker.warehouse_app.model.User
-
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
 import org.springframework.web.client.HttpStatusCodeException
 import org.springframework.web.client.RestClientException
 
@@ -48,8 +34,6 @@ class LoginActivity : AppCompatActivity() {
      * Keep track of the login task to ensure we can cancel it if requested.
      */
     private var mAuthTask: UserLoginTask? = null
-
-    // UI references.
     private var mEmailView: AutoCompleteTextView? = null
     private var mPasswordView: EditText? = null
     private var mProgressView: View? = null
@@ -76,11 +60,8 @@ class LoginActivity : AppCompatActivity() {
         mLoginFormView = findViewById(R.id.login_form)
         mProgressView = findViewById(R.id.login_progress)
         if (savedInstanceState != null) {
-            println("cool")
             mAuthTask = lastCustomNonConfigurationInstance?.let { it as UserLoginTask }
-            println("get")
             mAuthTask?.let {
-                println(mAuthTask!!.status)
                 mAuthTask!!.loginActivity = this
                 if (mAuthTask!!.status == TaskStatus.PROCESSING) {
                     showProgress(true)
@@ -90,7 +71,6 @@ class LoginActivity : AppCompatActivity() {
     }
 
     override fun onRetainCustomNonConfigurationInstance(): Any? {
-        println(mAuthTask?.let { "have" })
         return mAuthTask
     }
 
@@ -122,9 +102,7 @@ class LoginActivity : AppCompatActivity() {
      * errors are presented and no actual login attempt is made.
      */
 
-    data class UnknownUser(@JsonProperty("login") var login: String, @JsonProperty("password") val password: String) {
-
-    }
+    data class UnknownUser(@JsonProperty("login") var login: String, @JsonProperty("password") val password: String)
 
     private fun attemptLogin() {
         if (mAuthTask != null) {
@@ -201,7 +179,7 @@ class LoginActivity : AppCompatActivity() {
     }
 
 
-    protected fun loggedSuccess(user: com.ifmo.necracker.warehouse_app.model.User) {
+    private fun loggedSuccess(user: com.ifmo.necracker.warehouse_app.model.User) {
         val intent = Intent(this, MainActivity::class.java)
         intent.putExtra("user", user)
         startActivity(intent)
@@ -227,12 +205,10 @@ class LoginActivity : AppCompatActivity() {
             requestPremission()
 
             status = TaskStatus.PROCESSING
-            println("Login " + login)
-            println("Pass " + mPassword)
 
             for (attempt in 1..MAX_ATTEMPTS_COUNT) {
                 try {
-                    response = restTemplate.getForEntity(serverAddress + "/user_existence/" + login + "/" + mPassword, Int::class.java)
+                    response = restTemplate.getForEntity("$serverAddress/user_existence/$login/$mPassword", Int::class.java)
                     break
                 } catch (e: HttpStatusCodeException) {
                     if (e.statusCode == HttpStatus.INTERNAL_SERVER_ERROR) {
@@ -250,14 +226,15 @@ class LoginActivity : AppCompatActivity() {
             if (response == null || response!!.statusCode != HttpStatus.OK) {
                 for (attempt in 1..MAX_ATTEMPTS_COUNT) {
                     try {
-                        response = restTemplate.postForEntity(serverAddress + "/new_user", UnknownUser(login, mPassword), Int::class.java)
+                        response = restTemplate.postForEntity("$serverAddress/new_user", UnknownUser(login, mPassword), Int::class.java)
                         break
                     } catch (e: HttpStatusCodeException) {
                         if (e.statusCode == HttpStatus.INTERNAL_SERVER_ERROR) {
                             error = "Internal server error"
                             return false
                         }
-                        break
+                        error = "Incorrect password"
+                        return false
                     } catch (e: RestClientException) {
                         if (attempt == MAX_ATTEMPTS_COUNT) {
                             error = "Unable to connect to server"
@@ -265,10 +242,6 @@ class LoginActivity : AppCompatActivity() {
                         }
                     }
                 }
-            }
-            if (response == null || response!!.statusCode != HttpStatus.OK) {
-                error = "Incorrect password"
-                return false
             }
             return true
         }

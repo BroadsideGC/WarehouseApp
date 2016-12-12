@@ -1,49 +1,37 @@
 package com.ifmo.necracker.warehouse_app
 
-import android.app.Activity
-import android.app.ListActivity
-import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.os.AsyncTask
 import android.os.Bundle
-import android.os.PersistableBundle
 import android.support.design.widget.NavigationView
 import android.support.v4.view.GravityCompat
 import android.support.v4.widget.DrawerLayout
+import android.support.v4.widget.SwipeRefreshLayout
 import android.support.v7.app.ActionBarDrawerToggle
 import android.support.v7.app.AppCompatActivity
 import android.support.v7.widget.LinearLayoutManager
-
+import android.support.v7.widget.RecyclerView
 import android.support.v7.widget.Toolbar
 import android.view.*
-import android.widget.NumberPicker
 import android.widget.TextView
-import android.widget.Toast
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.ifmo.necracker.warehouse_app.model.Item
+import com.ifmo.necracker.warehouse_app.model.TaskStatus
 import com.ifmo.necracker.warehouse_app.model.User
 import org.springframework.http.ResponseEntity
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
 import org.springframework.web.client.HttpStatusCodeException
 import org.springframework.web.client.RestClientException
-
-import org.springframework.web.client.RestTemplate
 import java.io.IOException
-import android.support.v7.widget.RecyclerView
-import android.widget.OverScroller
-import android.support.v4.widget.SwipeRefreshLayout
-import android.support.v4.widget.SwipeRefreshLayout.OnRefreshListener
-import com.ifmo.necracker.warehouse_app.model.TaskStatus
 
 
 class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
 
     private var listView: RecyclerView? = null
-    private var adapter: CustomViewer? = null
+    private var adapter: ItemsViewer? = null
     private var asyncTask: GetAllItemsTask? = null
     private var restTemplate = com.ifmo.necracker.warehouse_app.restTemplate.restTemplate
     private var user: User? = null
@@ -57,16 +45,16 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         val toolbar = findViewById(R.id.toolbar) as Toolbar
         setSupportActionBar(toolbar)
         swipeContainer = findViewById(R.id.swipeContainerList) as SwipeRefreshLayout
-        swipeContainer!!.setOnRefreshListener(OnRefreshListener {
+        swipeContainer!!.setOnRefreshListener({
             if (asyncTask == null) {
                 asyncTask = GetAllItemsTask(this)
                 asyncTask!!.execute(null)
             }
         })
 
-        progressView =findViewById(R.id.items_progress)
+        progressView = findViewById(R.id.items_progress)
         listView = findViewById(R.id.listView) as RecyclerView
-        listView!!.setLayoutManager(LinearLayoutManager(this))
+        listView!!.layoutManager = LinearLayoutManager(this)
 
         val drawer = findViewById(R.id.drawer_layout) as DrawerLayout
         val toggle = ActionBarDrawerToggle(
@@ -74,8 +62,8 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         drawer.setDrawerListener(toggle)
         toggle.syncState()
         user = intent.getSerializableExtra("user") as User
-        adapter = CustomViewer(getContext(), itemList)
-        listView!!.setAdapter(adapter)
+        adapter = ItemsViewer(getContext(), itemList)
+        listView!!.adapter = adapter
         val navigationView = findViewById(R.id.nav_view) as NavigationView
         navigationView.setNavigationItemSelectedListener(this)
 
@@ -84,8 +72,8 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             asyncTask!!.execute(null)
             progressView!!.visibility = View.VISIBLE
         }
-        (navigationView.getHeaderView(0).findViewById(R.id.loginView) as TextView).text = "Login: " + user!!.login
-        (navigationView.getHeaderView(0).findViewById(R.id.idView) as TextView).text = "Id: " + user!!.id
+        (navigationView.getHeaderView(0).findViewById(R.id.loginView) as TextView).text = String.format(getString(R.string.string_username), user!!.login)
+        (navigationView.getHeaderView(0).findViewById(R.id.idView) as TextView).text = String.format(getString(R.string.string_id), user!!.id)
     }
 
 
@@ -104,10 +92,6 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        val id = item.itemId
 
         //noinspection SimplifiableIfStatement
 
@@ -131,7 +115,7 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
 
-    inner class CustomViewer(context: Context, private var items: List<Item>) : RecyclerView.Adapter<CustomViewer.ViewHolder>() {
+    inner class ItemsViewer(context: Context, private var items: List<Item>) : RecyclerView.Adapter<ItemsViewer.ViewHolder>() {
         private var li: LayoutInflater? = null
 
         init {
@@ -145,18 +129,14 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         }
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            holder.itemName.text = items.get(position).name
-            holder.itemIdd.text = "Id: " + items.get(position).id.toString()
-            holder.itemAmount.text = "Amount: " + items.get(position).quantity.toString()
+            holder.itemName.text = items[position].name
+            holder.itemIdd.text = String.format(getString(R.string.string_id), items[position].id)
+            holder.itemAmount.text = String.format(getString(R.string.string_amount), items[position].quantity)
         }
 
-        override fun getItemId(position: Int): Long {
-            return items.get(position).hashCode().toLong()
-        }
+        override fun getItemId(position: Int): Long = items[position].hashCode().toLong()
 
-        override fun getItemCount(): Int {
-            return items.size
-        }
+        override fun getItemCount(): Int = items.size
 
 
         inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView), View.OnClickListener {
@@ -190,17 +170,17 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         return this
     }
 
-    inner class GetAllItemsTask internal constructor(var activity: com.ifmo.necracker.warehouse_app.ListActivity) : AsyncTask<Void, Void, Boolean>() {
+    inner class GetAllItemsTask internal constructor(var activity: ListActivity) : AsyncTask<Void, Void, Boolean>() {
         private var allGoods = listOf<Item>()
         private var error = ""
         var status = TaskStatus.NONE
 
         override fun doInBackground(vararg params: Void): Boolean? {
             status = TaskStatus.PROCESSING
-            var response: ResponseEntity<JsonNode>? = null
+            var response: ResponseEntity<JsonNode>?
             for (attempt in 1..MAX_ATTEMPTS_COUNT) {
                 try {
-                    response = restTemplate.getForEntity(serverAddress + "/all_goods/", JsonNode::class.java)
+                    response = restTemplate.getForEntity("$serverAddress/all_goods/", JsonNode::class.java)
                     try {
                         val mapper = ObjectMapper().registerKotlinModule()
                         allGoods = mapper.readValue(mapper.treeAsTokens(response.body), object : TypeReference<List<Item>>() {
@@ -218,7 +198,6 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                     }
                 }
             }
-            println(allGoods)
             return true
         }
 
@@ -231,7 +210,6 @@ class ListActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 activity.itemList.clear()
                 activity.itemList.addAll(allGoods)
                 activity.adapter!!.notifyDataSetChanged()
-                println(itemList.size)
             }
             activity.swipeContainer!!.isRefreshing = false
             activity.asyncTask = null
