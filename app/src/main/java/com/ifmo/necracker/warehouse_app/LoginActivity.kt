@@ -208,15 +208,17 @@ class LoginActivity : AppCompatActivity() {
 
             for (attempt in 1..MAX_ATTEMPTS_COUNT) {
                 try {
-                    response = restTemplate.getForEntity("$serverAddress/user_existence/$login/$mPassword", Int::class.java)
+                    response = restTemplate.getForEntity("$serverAddress/user_existence/$login&$mPassword", Int::class.java)
                     break
                 } catch (e: HttpStatusCodeException) {
+                    println(e)
                     if (e.statusCode == HttpStatus.INTERNAL_SERVER_ERROR) {
                         error = "Internal server error"
                         return false
                     }
                     break
                 } catch (e: RestClientException) {
+                    println(e)
                     if (attempt == MAX_ATTEMPTS_COUNT) {
                         error = "Unable to connect to server"
                         return false
